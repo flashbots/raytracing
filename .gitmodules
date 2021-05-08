@@ -1,3 +1,6 @@
 [submodule "rayonism-mev-hackathon"]
 	path = rayonism-mev-hackathon
 	url = https://github.com/lidofinance/rayonism-mev-hackathon.git
+[submodule "nethermind"]
+	path = nethermind
+	url = https://github.com/NethermindEth/nethermind.git
