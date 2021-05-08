@@ -1,0 +1,3 @@
+[submodule "rayonism-mev-hackathon"]
+	path = rayonism-mev-hackathon
+	url = https://github.com/lidofinance/rayonism-mev-hackathon.git
