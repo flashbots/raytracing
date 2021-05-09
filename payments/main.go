@@ -34,6 +34,7 @@ var (
 	abiRegistry, _        = abi.JSON(strings.NewReader(string(nodeRegistryABI)))
 	abiDepositContract, _ = abi.JSON(strings.NewReader(string(depositABI)))
 	abiMEVLido, _         = abi.JSON(strings.NewReader(string(lidoMEVABI)))
+	abiLightPrism, _      = abi.JSON(strings.NewReader(string(lightPrismABI)))
 )
 
 func deployLidoContract(
@@ -52,6 +53,29 @@ func deployLidoContract(
 
 	t := types.NewContractCreation(
 		nonce, new(big.Int), 400_000, big.NewInt(10e9), payload,
+	)
+
+	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return t, client.SendTransaction(context.Background(), t)
+}
+
+func deployLightPrism(
+	from common.Address,
+	client *ethclient.Client,
+	chainID *big.Int,
+) (*types.Transaction, error) {
+
+	nonce, err := client.NonceAt(context.Background(), from, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	t := types.NewContractCreation(
+		nonce, new(big.Int), 400_000, big.NewInt(10e9), common.Hex2Bytes(lightPrismByteCode),
 	)
 
 	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
@@ -350,8 +374,6 @@ func program() error {
 		treasuryAddr              = crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	)
 
-	_ = lightPrismAddr
-
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
 		return err
@@ -507,20 +529,20 @@ func program() error {
 				continue
 			}
 
-			// if blockNumber == blockDeployLightPrism {
-			// 	t, err := deployLidoContract(deployerAddr, client, chainID)
-			// 	if err != nil {
-			// 		return err
-			// 	}
+			if blockNumber == blockDeployLightPrism {
+				t, err := deployLightPrism(deployerAddr, client, chainID)
+				if err != nil {
+					return err
+				}
 
-			// 	lightPrismAddr = crypto.CreateAddress(
-			// 		crypto.PubkeyToAddress(deployerKey.PublicKey),
-			// 		t.Nonce(),
-			// 	)
+				lightPrismAddr = crypto.CreateAddress(
+					crypto.PubkeyToAddress(deployerKey.PublicKey),
+					t.Nonce(),
+				)
 
-			// 	fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
-			// 	continue
-			// }
+				fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
+				continue
+			}
 
 		}
 	}
