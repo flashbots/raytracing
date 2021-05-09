@@ -175,8 +175,33 @@ const (
 	blockDeployMEVDistributor   = 7
 )
 
+var (
+	stakers   []staker
+	operators []common.Address
+)
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	s1, _ := crypto.HexToECDSA(
+		"98f6682f8e413e40bfe68e7551ea8c6d005f40aa520681f1dfccdf7238784113",
+	)
+	s2, _ := crypto.HexToECDSA(
+		"cc72af8c0acadaaabcbc1a485a4ea35380bb50633d36dd7dae57d99de9a5f639",
+	)
+	s3, _ := crypto.HexToECDSA(
+		"9e3dcc452413270fe82ac4e64e8cc989859b44a0caf00b336d6fcf7ff8d6dbd2",
+	)
+	operators = []common.Address{
+		crypto.PubkeyToAddress(s1.PublicKey),
+		crypto.PubkeyToAddress(s2.PublicKey),
+		crypto.PubkeyToAddress(s3.PublicKey),
+	}
+
+	stakers = []staker{
+		{s1, big.NewInt(1e18)},
+		{s2, big.NewInt(1e18)},
+		{s3, big.NewInt(1e18)},
+	}
 }
 
 func addOperators(
@@ -427,12 +452,19 @@ func program() error {
 					log.Fatal(err)
 				}
 
-				lidoContractAddr = crypto.CreateAddress(
-					deployerAddr,
-					t.Nonce(),
-				)
-
+				lidoContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
 				fmt.Println("deployed lido contract addr ", lidoContractAddr.Hex())
+				if err := addOperators(client, nodeOperatorsRegistryAddr,
+					operators, deployerAddr, chainID,
+				); err != nil {
+					log.Fatal(err)
+				}
+				if err := stake(
+					client, lidoContractAddr, stakers, oracleAddr, chainID, deployerAddr,
+				); err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("Added operators & added stakers")
 				continue
 			}
 
