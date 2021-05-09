@@ -17,4 +17,5 @@ Team:
  * Jackie (Nethermind) - full flow design and discussion
  * Tomasz (Nethermind) - LightPrism contract, recording / demo
 
-Thanks to everyone at flashbots, Lido and Nethermind who helped the team better understand the flow. Many slides from the presentation were reused from previous demo on the topic by Alex Obadia (prepared on top of the flashbots research by Alejo, Alex, and Tarush). Great thank you to Victor and Sam from Lido for explaining how the Lido contracts distribute value. Special thanks to Tina from flashbots for encouraging and pushing for timely delivery and help with presentation design. Thanks to Marek and Mateusz from Nethermind for their participation in The Merge launch and infra after Luaksz delivered the tonnes of code.
+Aknowledgement:
+Thanks to everyone at Flashbots, Lido and Nethermind team, and the Rayonism project. In particular, we are grateful for the support from Tina from Flashbots in fluid cross-team coordination bridging Rayonism and ETHGlobal hackathon, Victor and Sam from Lido team providing insights on Lido contract value distribution, Marek and Mateusz from Nethermind for their participation in the Merge launch, and the work of Flashbots Research on ETH2.
