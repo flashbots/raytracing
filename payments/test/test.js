@@ -4,7 +4,8 @@ const Lido = artifacts.require("LidoMevDistributor");
 // Traditional Truffle test
 contract("LightPrism", (accounts) => {
   it("Should pay", async function () {
-    const lightPrism = await LightPrism.new();
+    const lightPrism = await LightPrism.deployed();
+    const lido = await Lido.deployed();
     console.log("queue");
     await lightPrism.queueEther({ value: 3 });
     const recipients = {
@@ -17,7 +18,5 @@ contract("LightPrism", (accounts) => {
     await lightPrism.queueEther({ value: 3 });
     console.log("pay");
     await lightPrism.payMiner();
-
-    const lido = await Lido.deployed();
   });
 });
