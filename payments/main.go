@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -271,121 +269,161 @@ const (
 
 var (
 	clientDial = flag.String(
-		"client_dial", "ws://127.0.0.1:8546", "could be websocket or IPC",
+		"client_dial", "ws://127.0.0.1:8545", "could be websocket or IPC",
 	)
-	at        = flag.Uint64("kickoff", 2, "what number to kick off at")
-	faucet, _ = crypto.HexToECDSA(
-		"133be114715e5fe528a1b8adf36792160601a2d63ab59d1fd454275b31328791",
+	// meh - these came from ganache - so whatever
+	deployerKey, _ = crypto.HexToECDSA(
+		"57bae31ef9370140e635ba1fd70707f7a33076827490e4ad5d3eb87784710ce7",
 	)
-	lidoContractAddr = flag.String(
-		"lido_addr", "", "needs to be the 0x addr for lido contract",
+	treasuryKey, _ = crypto.HexToECDSA(
+		"0252d6c2476583794ac844385f63040d76f1904978a700e59a37c4e9f68c2f30",
 	)
-	someoneElse, _ = crypto.HexToECDSA("")
-	keys           = []*ecdsa.PrivateKey{faucet}
-	bribeABI, _    = abi.JSON(strings.NewReader(string(bribeContractABI)))
-	lidoABI, _     = abi.JSON(strings.NewReader(string(lidoABIRAW)))
+	lidoABI, _ = abi.JSON(strings.NewReader(string(lidoABIRAW)))
 )
 
-func invokeDistributeMEV(
-	client *ethclient.Client,
-	toAddr common.Address,
-	chainID *big.Int,
-) (*types.Transaction, error) {
+// func invokeDistributeMEV(
+// 	client *ethclient.Client,
+// 	toAddr common.Address,
+// 	chainID *big.Int,
+// ) (*types.Transaction, error) {
 
-	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
-	non, err := client.NonceAt(
-		context.Background(), k, nil,
-	)
-	if err != nil {
-		return nil, err
-	}
+// 	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
+// 	non, err := client.NonceAt(
+// 		context.Background(), k, nil,
+// 	)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	balance, err := client.BalanceAt(context.Background(), k, nil)
-	if err != nil {
-		return nil, err
-	}
-	if balance.Cmp(common.Big0) == 0 {
-		return nil, errors.New("need non-zero balance")
-	}
+// 	balance, err := client.BalanceAt(context.Background(), k, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if balance.Cmp(common.Big0) == 0 {
+// 		return nil, errors.New("need non-zero balance")
+// 	}
 
-	packed, err := lidoABI.Pack("distribureMev")
+// 	packed, err := lidoABI.Pack("distribureMev")
 
-	t := types.NewTransaction(
-		non,
-		toAddr,
-		big.NewInt(1e17),
-		100_000,
-		big.NewInt(3e9),
-		packed,
-	)
-	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
-}
+// 	t := types.NewTransaction(
+// 		non,
+// 		toAddr,
+// 		big.NewInt(1e17),
+// 		100_000,
+// 		big.NewInt(3e9),
+// 		packed,
+// 	)
+// 	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
+// }
 
-func invokeMinerPayment(
-	client *ethclient.Client,
-	toAddr common.Address,
-	chainID *big.Int,
-) (*types.Transaction, error) {
+// func invokeMinerPayment(
+// 	client *ethclient.Client,
+// 	toAddr common.Address,
+// 	chainID *big.Int,
+// ) (*types.Transaction, error) {
 
-	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
-	non, err := client.NonceAt(
-		context.Background(), k, nil,
-	)
-	if err != nil {
-		return nil, err
-	}
+// 	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
+// 	non, err := client.NonceAt(
+// 		context.Background(), k, nil,
+// 	)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	balance, err := client.BalanceAt(context.Background(), k, nil)
-	if err != nil {
-		return nil, err
-	}
-	if balance.Cmp(common.Big0) == 0 {
-		return nil, errors.New("need non-zero balance")
-	}
-	t := types.NewTransaction(
-		non,
-		toAddr,
-		new(big.Int),
-		100_000,
-		big.NewInt(3e9),
-		nil,
-	)
-	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
-}
+// 	balance, err := client.BalanceAt(context.Background(), k, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	if balance.Cmp(common.Big0) == 0 {
+// 		return nil, errors.New("need non-zero balance")
+// 	}
+// 	t := types.NewTransaction(
+// 		non,
+// 		toAddr,
+// 		new(big.Int),
+// 		100_000,
+// 		big.NewInt(3e9),
+// 		nil,
+// 	)
+// 	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
+// }
 
-func deployBribeContract(
-	client *ethclient.Client,
-	chainID *big.Int,
-) (*types.Transaction, error) {
-	t := types.NewContractCreation(
-		0, new(big.Int), 400_000, big.NewInt(10e9),
-		common.Hex2Bytes(bribeContractBin),
-	)
+// func deployBribeContract(
+// 	client *ethclient.Client,
+// 	chainID *big.Int,
+// ) (*types.Transaction, error) {
+// 	t := types.NewContractCreation(
+// 		0, new(big.Int), 400_000, big.NewInt(10e9),
+// 		common.Hex2Bytes(bribeContractBin),
+// 	)
 
-	t, err := types.SignTx(t, types.NewEIP155Signer(chainID), faucet)
-	if err != nil {
-		return nil, err
-	}
+// 	t, err := types.SignTx(t, types.NewEIP155Signer(chainID), faucet)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return t, client.SendTransaction(context.Background(), t)
-}
+// 	return t, client.SendTransaction(context.Background(), t)
+// }
 
 func deployLidoContract(
+	from common.Address,
 	client *ethclient.Client,
 	chainID *big.Int,
+	args ...[]byte,
 ) (*types.Transaction, error) {
+
+	nonce, err := client.NonceAt(context.Background(), from, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := common.Hex2Bytes(lidoContract)
+
+	for _, k := range args {
+		payload = append(payload, k...)
+	}
+
 	t := types.NewContractCreation(
-		0, new(big.Int), 400_000, big.NewInt(10e9),
-		common.Hex2Bytes(lidoContract),
+		nonce, new(big.Int), 400_000, big.NewInt(10e9), payload,
 	)
 
-	t, err := types.SignTx(t, types.NewEIP155Signer(chainID), faucet)
+	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return t, client.SendTransaction(context.Background(), t)
 }
+
+func contractDeploy(
+	from common.Address,
+	client *ethclient.Client,
+	chainID *big.Int,
+	rawByteCode []byte,
+) (*types.Transaction, error) {
+	nonce, err := client.NonceAt(context.Background(), from, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	t := types.NewContractCreation(
+		nonce, new(big.Int), 400_000, big.NewInt(10e9), rawByteCode,
+	)
+
+	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+	if err != nil {
+		return nil, err
+	}
+	return t, client.SendTransaction(context.Background(), t)
+}
+
+const (
+	blockDeployMock             = 3
+	blockDeployOperatorRegistry = 4
+	blockDeployLido             = 5
+	blockDeployLightPrism       = 6
+	blockDeployMEVDistributor   = 7
+)
 
 func program() error {
 	client, err := ethclient.Dial(*clientDial)
@@ -403,15 +441,19 @@ func program() error {
 	}
 
 	var (
-		lightPrismAddr common.Address
-		lidoMockAddr   common.Address
+		lightPrismAddr            common.Address
+		lidoContractAddr          common.Address
+		depositContractAddr       common.Address
+		nodeOperatorsRegistryAddr common.Address
+		deployerAddr              = crypto.PubkeyToAddress(deployerKey.PublicKey)
+		oracleAddr                = deployerAddr
+		treasuryAddr              = crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	)
 
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
-	deployAt := *at
 
 	for {
 		select {
@@ -420,56 +462,72 @@ func program() error {
 		case incoming := <-ch:
 			blockNumber := incoming.Number.Uint64()
 
-			if blockNumber == (deployAt - 1) {
-				t, err := deployLidoContract(client, chainID)
-				if err != nil {
-					return err
-				}
-
-				lidoMockAddr = crypto.CreateAddress(
-					crypto.PubkeyToAddress(faucet.PublicKey),
-					t.Nonce(),
+			if blockNumber == blockDeployMock {
+				t, err := contractDeploy(
+					deployerAddr,
+					client, chainID, common.Hex2Bytes(depositContractByteCode),
 				)
-				fmt.Println("\tdeployed lido contract ",
-					lightPrismAddr.Hex(), "at block number",
-					blockNumber)
+				if err != nil {
+					log.Fatal(err)
+				}
+				depositContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
 				continue
 			}
 
-			if blockNumber == deployAt {
-				t, err := deployBribeContract(client, chainID)
+			if blockNumber == blockDeployOperatorRegistry {
+				t, err := contractDeploy(
+					deployerAddr,
+					client, chainID, common.Hex2Bytes(nodeOperatorsRegistryByteCode),
+				)
+				if err != nil {
+					log.Fatal(err)
+				}
+				nodeOperatorsRegistryAddr = crypto.CreateAddress(
+					deployerAddr,
+					t.Nonce()+1,
+				)
+				fmt.Println("deployed node operator registry at ", nodeOperatorsRegistryAddr.Hex())
+				continue
+			}
+
+			if blockNumber == blockDeployLido {
+				t, err := deployLidoContract(
+					deployerAddr,
+					client, chainID,
+					// constructor args
+					depositContractAddr.Bytes(),
+					oracleAddr.Bytes(),
+					nodeOperatorsRegistryAddr.Bytes(),
+					treasuryAddr.Bytes(),
+					treasuryAddr.Bytes(),
+				)
+
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				lidoContractAddr = crypto.CreateAddress(
+					deployerAddr,
+					t.Nonce(),
+				)
+
+				fmt.Println("deployed lido contract addr ", lidoContractAddr.Hex())
+				continue
+			}
+
+			if blockNumber == blockDeployLightPrism {
+				t, err := deployLidoContract(deployerAddr, client, chainID)
 				if err != nil {
 					return err
 				}
 
 				lightPrismAddr = crypto.CreateAddress(
-					crypto.PubkeyToAddress(faucet.PublicKey),
+					crypto.PubkeyToAddress(deployerKey.PublicKey),
 					t.Nonce(),
 				)
-				fmt.Println("\tdeployed lightPrism contract ",
-					lightPrismAddr.Hex(), "at block number",
-					blockNumber)
+
+				fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
 				continue
-			}
-
-			if blockNumber > *at {
-				// probably ought to just make one contract do this?
-				t, err := invokeMinerPayment(client, lightPrismAddr, chainID)
-				if err != nil {
-					log.Fatal(err)
-				}
-				if err := client.SendTransaction(context.Background(), t); err != nil {
-					log.Fatal(err)
-				}
-
-				lidoCall, err := invokeDistributeMEV(client, lidoMockAddr, chainID)
-				if err != nil {
-					log.Fatal(err)
-				}
-				if err := client.SendTransaction(context.Background(), lidoCall); err != nil {
-					log.Fatal(err)
-				}
-
 			}
 		}
 	}
