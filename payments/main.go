@@ -569,7 +569,7 @@ func program() error {
 					// and we are out of time, so whatever.
 					fmt.Println("Watching events from lightPrism contract")
 					time.Sleep(time.Second)
-					fmt.Println("")
+					fmt.Println("FlashbotsPayment event raised paid to staking pool &coinbase")
 				}()
 
 				fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
