@@ -7,8 +7,8 @@ contract("LightPrism", accounts => {
     console.log("queue")
     await lightPrism.queueEther({value : 3});
     const recipients = {
-      executor :    '0x0100000000000000000000000000000000000000',
-      stakingPool : '0x0200000000000000000000000000000000000000'
+      executor :    '0x0000000000000000000000000000000000000000', // zero will be coinbase
+      stakingPool : '0xabcd000000000000000000000000000000001234' // lido contract here
     }
     console.log("recipients")
     await lightPrism.setRecipients(recipients);
