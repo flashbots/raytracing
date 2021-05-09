@@ -30,9 +30,9 @@ var (
 	treasuryKey, _ = crypto.HexToECDSA(
 		"0252d6c2476583794ac844385f63040d76f1904978a700e59a37c4e9f68c2f30",
 	)
-	lidoABI, _            = abi.JSON(strings.NewReader(string("")))
-	nodeRegistryABI, _    = abi.JSON(strings.NewReader(string("")))
-	depositContractABI, _ = abi.JSON(strings.NewReader(string("")))
+	abiLido, _            = abi.JSON(strings.NewReader(string(lidoABI)))
+	abiRegistry, _        = abi.JSON(strings.NewReader(string(nodeRegistryABI)))
+	abiDepositContract, _ = abi.JSON(strings.NewReader(string(depositABI)))
 )
 
 // func invokeDistributeMEV(
@@ -196,7 +196,7 @@ func addOperators(
 			return err
 		}
 
-		packed, err := nodeRegistryABI.Pack("addNodeOperator", fmt.Sprintf("%d", i), oper, 20)
+		packed, err := abiRegistry.Pack("addNodeOperator", fmt.Sprintf("%d", i), oper, 20)
 		if err != nil {
 			return err
 		}
@@ -219,7 +219,7 @@ func addOperators(
 		rand.Read(pubKeys)
 		rand.Read(signatures)
 
-		packed, err = nodeRegistryABI.Pack(
+		packed, err = abiRegistry.Pack(
 			"addSigningKeys", fmt.Sprintf("%d", i), 20, pubKeys, signatures,
 		)
 
@@ -265,7 +265,7 @@ func stake(
 			return err
 		}
 
-		packed, err := lidoABI.Pack("submit", common.Address{})
+		packed, err := abiLido.Pack("submit", common.Address{})
 		if err != nil {
 			return err
 		}
@@ -288,7 +288,7 @@ func stake(
 		return err
 	}
 
-	packed, err := lidoABI.Pack("depositBufferedEther")
+	packed, err := abiLido.Pack("depositBufferedEther")
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func stake(
 		common.Big1,
 	)
 	p := new(big.Int).Mul(plusOne, raise)
-	packed, err = lidoABI.Pack(
+	packed, err = abiLido.Pack(
 		"pushBeacon",
 		stakerCount,
 		p,
