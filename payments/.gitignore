@@ -2,6 +2,6 @@ contracts/.placeholder
 test/.placeholder
 build
 node_modules
-.secret
+#.secret
 watch_for_arb
 .tern-port
