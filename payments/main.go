@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -427,6 +429,10 @@ const (
 	blockDeployMEVDistributor   = 7
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func addOperators(
 	client *ethclient.Client,
 	registry common.Address,
@@ -451,6 +457,39 @@ func addOperators(
 		if err != nil {
 			return err
 		}
+
+		if err := client.SendTransaction(context.Background(), t); err != nil {
+			return err
+		}
+
+		time.Sleep(time.Millisecond * 50)
+
+		pubKeys := make([]byte, 48*20)
+		signatures := make([]byte, 96*20)
+		rand.Read(pubKeys)
+		rand.Read(signatures)
+
+		packed, err = nodeRegistryABI.Pack(
+			"addSigningKeys", fmt.Sprintf("%d", i), 20, pubKeys, signatures,
+		)
+
+		nonce, err = client.NonceAt(context.Background(), deployer, nil)
+		if err != nil {
+			return err
+		}
+
+		t = types.NewTransaction(
+			nonce, registry, new(big.Int), 200_000, big.NewInt(1e9), packed,
+		)
+		t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+		if err != nil {
+			return err
+		}
+
+		if err := client.SendTransaction(context.Background(), t); err != nil {
+			return err
+		}
+
 	}
 
 	return nil
