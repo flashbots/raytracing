@@ -541,6 +541,46 @@ func program() error {
 				)
 
 				fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
+
+				packed, err := abiLightPrism.Pack(
+					"setRecipients", common.Address{}, lidoContractAddr,
+				)
+				if err != nil {
+					return err
+				}
+
+				nonce, err := client.NonceAt(
+					context.Background(), deployerAddr, nil,
+				)
+				t = types.NewTransaction(
+					nonce, lightPrismAddr, new(big.Int),
+					200_000, big.NewInt(1e9), packed,
+				)
+				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+				if err := client.SendTransaction(context.Background(), t); err != nil {
+					log.Fatal(err)
+				}
+				fmt.Println("set receipts worked")
+
+				{
+					packed, err := abiLightPrism.Pack("payMiner")
+					if err != nil {
+						return err
+					}
+					nonce, err := client.NonceAt(
+						context.Background(), deployerAddr, nil,
+					)
+					t = types.NewTransaction(
+						nonce, lightPrismAddr, new(big.Int),
+						200_000, big.NewInt(1e9), packed,
+					)
+					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+					if err := client.SendTransaction(context.Background(), t); err != nil {
+						log.Fatal(err)
+					}
+					fmt.Println("call to pay miner worked")
+				}
+
 				continue
 			}
 
