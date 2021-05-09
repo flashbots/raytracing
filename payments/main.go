@@ -192,53 +192,41 @@ var (
 	faucet, _ = crypto.HexToECDSA(
 		"133be114715e5fe528a1b8adf36792160601a2d63ab59d1fd454275b31328791",
 	)
-	keys        = []*ecdsa.PrivateKey{faucet}
-	bribeABI, _ = abi.JSON(strings.NewReader(string(bribeContractABI)))
+	someoneElse, _ = crypto.HexToECDSA("")
+	keys           = []*ecdsa.PrivateKey{faucet}
+	bribeABI, _    = abi.JSON(strings.NewReader(string(bribeContractABI)))
 )
 
-func mbTxList(
+func invokeMinerPayment(
 	client *ethclient.Client,
 	toAddr common.Address,
 	chainID *big.Int,
-) (types.Transactions, error) {
+) (*types.Transaction, error) {
 
-	packed, err := bribeABI.Methods["bribe"].Inputs.Pack()
+	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
+	non, err := client.NonceAt(
+		context.Background(), k, nil,
+	)
 	if err != nil {
 		return nil, err
 	}
-	txs := make(types.Transactions, len(keys))
 
-	for i, key := range keys {
-		k := crypto.PubkeyToAddress(key.PublicKey)
-		non, err := client.NonceAt(
-			context.Background(), k, nil,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		balance, err := client.BalanceAt(context.Background(), k, nil)
-		if err != nil {
-			return nil, err
-		}
-		if balance.Cmp(common.Big0) == 0 {
-			return nil, errors.New("need non-zero balance")
-		}
-		t := types.NewTransaction(
-			non,
-			toAddr,
-			new(big.Int),
-			100_000,
-			big.NewInt(3e9),
-			packed,
-		)
-		t, err = types.SignTx(t, types.NewEIP155Signer(chainID), key)
-		if err != nil {
-			return nil, err
-		}
-		txs[i] = t
+	balance, err := client.BalanceAt(context.Background(), k, nil)
+	if err != nil {
+		return nil, err
 	}
-	return txs, nil
+	if balance.Cmp(common.Big0) == 0 {
+		return nil, errors.New("need non-zero balance")
+	}
+	t := types.NewTransaction(
+		non,
+		toAddr,
+		new(big.Int),
+		100_000,
+		big.NewInt(3e9),
+		nil,
+	)
+	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
 }
 
 func deployBribeContract(
@@ -273,10 +261,7 @@ func program() error {
 		return err
 	}
 
-	var (
-		newContractAddr common.Address
-		usedTxs         types.Transactions
-	)
+	var newContractAddr common.Address
 
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
@@ -305,7 +290,13 @@ func program() error {
 			}
 
 			if blockNumber > *at {
-				//
+				t, err := invokeMinerPayment(client, newContractAddr, chainID)
+				if err != nil {
+					log.Fatal(err)
+				}
+				if err := client.SendTransaction(context.Background(), t); err != nil {
+					log.Fatal(err)
+				}
 			}
 		}
 	}
