@@ -33,91 +33,8 @@ var (
 	abiLido, _            = abi.JSON(strings.NewReader(string(lidoABI)))
 	abiRegistry, _        = abi.JSON(strings.NewReader(string(nodeRegistryABI)))
 	abiDepositContract, _ = abi.JSON(strings.NewReader(string(depositABI)))
+	abiMEVLido, _         = abi.JSON(strings.NewReader(string(lidoMEVABI)))
 )
-
-// func invokeDistributeMEV(
-// 	client *ethclient.Client,
-// 	toAddr common.Address,
-// 	chainID *big.Int,
-// ) (*types.Transaction, error) {
-
-// 	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
-// 	non, err := client.NonceAt(
-// 		context.Background(), k, nil,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	balance, err := client.BalanceAt(context.Background(), k, nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if balance.Cmp(common.Big0) == 0 {
-// 		return nil, errors.New("need non-zero balance")
-// 	}
-
-// 	packed, err := lidoABI.Pack("distribureMev")
-
-// 	t := types.NewTransaction(
-// 		non,
-// 		toAddr,
-// 		big.NewInt(1e17),
-// 		100_000,
-// 		big.NewInt(3e9),
-// 		packed,
-// 	)
-// 	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
-// }
-
-// func invokeMinerPayment(
-// 	client *ethclient.Client,
-// 	toAddr common.Address,
-// 	chainID *big.Int,
-// ) (*types.Transaction, error) {
-
-// 	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
-// 	non, err := client.NonceAt(
-// 		context.Background(), k, nil,
-// 	)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	balance, err := client.BalanceAt(context.Background(), k, nil)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if balance.Cmp(common.Big0) == 0 {
-// 		return nil, errors.New("need non-zero balance")
-// 	}
-// 	t := types.NewTransaction(
-// 		non,
-// 		toAddr,
-// 		new(big.Int),
-// 		100_000,
-// 		big.NewInt(3e9),
-// 		nil,
-// 	)
-// 	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
-// }
-
-// func deployBribeContract(
-// 	client *ethclient.Client,
-// 	chainID *big.Int,
-// ) (*types.Transaction, error) {
-// 	t := types.NewContractCreation(
-// 		0, new(big.Int), 400_000, big.NewInt(10e9),
-// 		common.Hex2Bytes(bribeContractBin),
-// 	)
-
-// 	t, err := types.SignTx(t, types.NewEIP155Signer(chainID), faucet)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return t, client.SendTransaction(context.Background(), t)
-// }
 
 func deployLidoContract(
 	from common.Address,
@@ -132,6 +49,32 @@ func deployLidoContract(
 	}
 
 	payload := append(common.Hex2Bytes(lidoByteCode), args...)
+
+	t := types.NewContractCreation(
+		nonce, new(big.Int), 400_000, big.NewInt(10e9), payload,
+	)
+
+	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return t, client.SendTransaction(context.Background(), t)
+}
+
+func deployMEVDistributor(
+	from common.Address,
+	client *ethclient.Client,
+	chainID *big.Int,
+	args []byte,
+) (*types.Transaction, error) {
+
+	nonce, err := client.NonceAt(context.Background(), from, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := append(common.Hex2Bytes(lidoMEVdistribByteCode), args...)
 
 	t := types.NewContractCreation(
 		nonce, new(big.Int), 400_000, big.NewInt(10e9), payload,
@@ -217,7 +160,7 @@ func addOperators(
 			return err
 		}
 
-		packed, err := abiRegistry.Pack("addNodeOperator", fmt.Sprintf("%d", i), oper, 20)
+		packed, err := abiRegistry.Pack("addNodeOperator", fmt.Sprintf("%d", i), oper, uint64(20))
 		if err != nil {
 			return err
 		}
@@ -281,7 +224,11 @@ func stake(
 ) error {
 
 	for _, s := range stakers {
-		nonce, err := client.NonceAt(context.Background(), deployer, nil)
+		nonce, err := client.NonceAt(
+			context.Background(),
+			crypto.PubkeyToAddress(s.Key.PublicKey),
+			nil,
+		)
 		if err != nil {
 			return err
 		}
@@ -298,7 +245,7 @@ func stake(
 		if err != nil {
 			return err
 		}
-
+		time.Sleep(time.Millisecond * 100)
 		if err := client.SendTransaction(context.Background(), t); err != nil {
 			return err
 		}
@@ -311,6 +258,7 @@ func stake(
 
 	packed, err := abiLido.Pack("depositBufferedEther")
 	if err != nil {
+		fmt.Println("died here A")
 		return err
 	}
 	t := types.NewTransaction(
@@ -319,10 +267,14 @@ func stake(
 
 	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), stakers[0].Key)
 	if err != nil {
+		fmt.Println("died here B")
+
 		return err
 	}
+	time.Sleep(time.Millisecond * 100)
 
 	if err := client.SendTransaction(context.Background(), t); err != nil {
+		fmt.Println("died here C")
 		return err
 	}
 
@@ -345,20 +297,27 @@ func stake(
 		return err
 	}
 
-	t = types.NewTransaction(
-		nonce, lido, new(big.Int), 200_000, big.NewInt(1e9), packed,
+	nonce, err = client.NonceAt(
+		context.Background(),
+		crypto.PubkeyToAddress(stakers[0].Key.PublicKey),
+		nil,
 	)
-
-	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), stakers[0].Key)
 	if err != nil {
 		return err
 	}
 
-	if err := client.SendTransaction(context.Background(), t); err != nil {
+	t = types.NewTransaction(
+		nonce, lido, new(big.Int), 200_000, big.NewInt(1e9), packed,
+	)
+
+	time.Sleep(time.Millisecond * 100)
+	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), stakers[0].Key)
+
+	if err != nil {
 		return err
 	}
 
-	return nil
+	return client.SendTransaction(context.Background(), t)
 }
 
 func distribureMev() {
@@ -383,12 +342,14 @@ func program() error {
 	var (
 		lightPrismAddr            common.Address
 		lidoContractAddr          common.Address
+		lidoMEVContractAddr       common.Address
 		depositContractAddr       common.Address
 		nodeOperatorsRegistryAddr common.Address
 		deployerAddr              = crypto.PubkeyToAddress(deployerKey.PublicKey)
 		oracleAddr                = deployerAddr
 		treasuryAddr              = crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	)
+
 	_ = lightPrismAddr
 
 	chainID, err := client.ChainID(context.Background())
@@ -432,7 +393,7 @@ func program() error {
 			}
 
 			if blockNumber == blockDeployLido {
-				fmt.Println("try to deploy")
+				fmt.Println("Deploying Lido Contract")
 				packed, err := abiLido.Pack("", depositContractAddr,
 					oracleAddr,
 					nodeOperatorsRegistryAddr,
@@ -448,7 +409,6 @@ func program() error {
 				)
 
 				if err != nil {
-					fmt.Println("died here")
 					log.Fatal(err)
 				}
 
@@ -456,9 +416,12 @@ func program() error {
 				fmt.Println("deployed lido contract addr ", lidoContractAddr.Hex())
 
 				packed, err = abiRegistry.Pack("setLido", lidoContractAddr)
+
 				if err != nil {
-					log.Fatal(err)
+					fmt.Println("died a")
+					return err
 				}
+
 				nonce, err := client.NonceAt(
 					context.Background(), deployerAddr, nil,
 				)
@@ -471,12 +434,11 @@ func program() error {
 					log.Fatal(err)
 				}
 
-				cred := make([]byte, 32)
-				rand.Read(cred)
+				cred := [32]byte{}
+				rand.Read(cred[:])
 
-				packed, err = abiLido.Pack("setWithdrawalCredentials",
-					new(big.Int).SetBytes(cred),
-				)
+				packed, err = abiLido.Pack("setWithdrawalCredentials", cred)
+
 				if err != nil {
 					log.Fatal(err)
 				}
@@ -505,9 +467,27 @@ func program() error {
 				)
 				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 				if err := client.SendTransaction(context.Background(), t); err != nil {
-					log.Fatal(err)
+					return err
 				}
 
+				packed, err = abiMEVLido.Pack(
+					"", lidoContractAddr, new(big.Int).Mul(big.NewInt(5), big.NewInt(10e17)),
+				)
+
+				if err != nil {
+					return err
+				}
+
+				t, err = deployMEVDistributor(
+					deployerAddr, client, chainID, packed,
+				)
+
+				if err != nil {
+					return err
+				}
+
+				lidoMEVContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
+				fmt.Println("lidoMEV contract addr deployed at", lidoMEVContractAddr.Hex())
 				// # 50% of the received MEV goes to validators, 50% to stakers
 				// distributor = LidoMevDistributor.deploy(lido, 5 * 10**17, {'from': deployer})
 
@@ -516,9 +496,11 @@ func program() error {
 				); err != nil {
 					log.Fatal(err)
 				}
+
 				if err := stake(
 					client, lidoContractAddr, stakers, oracleAddr, chainID, deployerAddr,
 				); err != nil {
+					fmt.Println("died here B")
 					log.Fatal(err)
 				}
 				fmt.Println("Added operators & added stakers")
