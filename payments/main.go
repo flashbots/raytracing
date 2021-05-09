@@ -278,7 +278,9 @@ var (
 	treasuryKey, _ = crypto.HexToECDSA(
 		"0252d6c2476583794ac844385f63040d76f1904978a700e59a37c4e9f68c2f30",
 	)
-	lidoABI, _ = abi.JSON(strings.NewReader(string(lidoABIRAW)))
+	lidoABI, _            = abi.JSON(strings.NewReader(string(lidoABIRAW)))
+	nodeRegistryABI, _    = abi.JSON(strings.NewReader(string("")))
+	depositContractABI, _ = abi.JSON(strings.NewReader(string("")))
 )
 
 // func invokeDistributeMEV(
@@ -424,6 +426,43 @@ const (
 	blockDeployLightPrism       = 6
 	blockDeployMEVDistributor   = 7
 )
+
+func addOperators(
+	client *ethclient.Client,
+	registry common.Address,
+	operators []common.Address,
+	deployer common.Address,
+	chainID *big.Int,
+) error {
+	for i, oper := range operators {
+		nonce, err := client.NonceAt(context.Background(), deployer, nil)
+		if err != nil {
+			return err
+		}
+
+		packed, err := nodeRegistryABI.Pack("addNodeOperator", fmt.Sprintf("%d", i), oper, 20)
+		if err != nil {
+			return err
+		}
+		t := types.NewTransaction(
+			nonce, registry, new(big.Int), 200_000, big.NewInt(1e9), packed,
+		)
+		t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func stake(lido common.Address, stakers []common.Address, oracle common.Address) {
+	//
+}
+
+func distribureMev() {
+	//
+}
 
 func program() error {
 	client, err := ethclient.Dial(*clientDial)
