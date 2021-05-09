@@ -454,6 +454,63 @@ func program() error {
 
 				lidoContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
 				fmt.Println("deployed lido contract addr ", lidoContractAddr.Hex())
+
+				packed, err = abiRegistry.Pack("setLido", lidoContractAddr)
+				if err != nil {
+					log.Fatal(err)
+				}
+				nonce, err := client.NonceAt(
+					context.Background(), deployerAddr, nil,
+				)
+				t = types.NewTransaction(
+					nonce, nodeOperatorsRegistryAddr, new(big.Int),
+					200_000, big.NewInt(1e9), packed,
+				)
+				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+				if err := client.SendTransaction(context.Background(), t); err != nil {
+					log.Fatal(err)
+				}
+
+				cred := make([]byte, 32)
+				rand.Read(cred)
+
+				packed, err = abiLido.Pack("setWithdrawalCredentials",
+					new(big.Int).SetBytes(cred),
+				)
+				if err != nil {
+					log.Fatal(err)
+				}
+				nonce, err = client.NonceAt(
+					context.Background(), deployerAddr, nil,
+				)
+				t = types.NewTransaction(
+					nonce, lidoContractAddr, new(big.Int),
+					200_000, big.NewInt(1e9), packed,
+				)
+				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+				if err := client.SendTransaction(context.Background(), t); err != nil {
+					log.Fatal(err)
+				}
+
+				packed, err = abiLido.Pack("resume")
+				if err != nil {
+					log.Fatal(err)
+				}
+				nonce, err = client.NonceAt(
+					context.Background(), deployerAddr, nil,
+				)
+				t = types.NewTransaction(
+					nonce, lidoContractAddr, new(big.Int),
+					200_000, big.NewInt(1e9), packed,
+				)
+				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+				if err := client.SendTransaction(context.Background(), t); err != nil {
+					log.Fatal(err)
+				}
+
+				// # 50% of the received MEV goes to validators, 50% to stakers
+				// distributor = LidoMevDistributor.deploy(lido, 5 * 10**17, {'from': deployer})
+
 				if err := addOperators(client, nodeOperatorsRegistryAddr,
 					operators, deployerAddr, chainID,
 				); err != nil {
