@@ -3,3 +3,5 @@ test/.placeholder
 build
 node_modules
 .secret
+watch_for_arb
+.tern-port
