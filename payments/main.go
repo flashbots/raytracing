@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	m "github.com/ethereum/go-ethereum/common/math"
@@ -540,7 +541,57 @@ func program() error {
 					t.Nonce(),
 				)
 
+				go func() {
+					query := ethereum.FilterQuery{
+						FromBlock: big.NewInt(0),
+						ToBlock:   big.NewInt(100000),
+						Addresses: []common.Address{lightPrismAddr},
+					}
+					logs := make(chan types.Log)
+					sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					go func() {
+						for {
+							select {
+							case err := <-sub.Err():
+								log.Fatal(err)
+							case vLog := <-logs:
+								fmt.Println("YES")
+								fmt.Println(vLog) // pointer to event log
+							}
+						}
+					}()
+
+					// yea okay - so ganache-cli wasn't giving back the events as needed
+					// and we are out of time, so whatever.
+					fmt.Println("Watching events from lightPrism contract")
+					time.Sleep(time.Second)
+					fmt.Println("")
+				}()
+
 				fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
+
+				{
+					packed, err := abiLightPrism.Pack("queueEther")
+					if err != nil {
+						return err
+					}
+
+					nonce, err := client.NonceAt(
+						context.Background(), deployerAddr, nil,
+					)
+					t = types.NewTransaction(
+						nonce, lightPrismAddr, big.NewInt(3e18),
+						200_000, big.NewInt(1e9), packed,
+					)
+					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+					if err := client.SendTransaction(context.Background(), t); err != nil {
+						log.Fatal(err)
+					}
+				}
 
 				packed, err := abiLightPrism.Pack(
 					"setRecipients", common.Address{}, lidoContractAddr,
@@ -560,7 +611,7 @@ func program() error {
 				if err := client.SendTransaction(context.Background(), t); err != nil {
 					log.Fatal(err)
 				}
-				fmt.Println("set receipts worked")
+				fmt.Println("set recipients worked")
 
 				{
 					packed, err := abiLightPrism.Pack("payMiner")
@@ -579,6 +630,25 @@ func program() error {
 						log.Fatal(err)
 					}
 					fmt.Println("call to pay miner worked")
+				}
+
+				{
+					packed, err := abiLightPrism.Pack("queueEther")
+					if err != nil {
+						return err
+					}
+
+					nonce, err := client.NonceAt(
+						context.Background(), deployerAddr, nil,
+					)
+					t = types.NewTransaction(
+						nonce, lightPrismAddr, big.NewInt(3e18),
+						200_000, big.NewInt(1e9), packed,
+					)
+					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+					if err := client.SendTransaction(context.Background(), t); err != nil {
+						log.Fatal(err)
+					}
 				}
 
 				continue
