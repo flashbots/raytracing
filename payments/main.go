@@ -192,10 +192,49 @@ var (
 	faucet, _ = crypto.HexToECDSA(
 		"133be114715e5fe528a1b8adf36792160601a2d63ab59d1fd454275b31328791",
 	)
+	lidoContractAddr = flag.String(
+		"lido_addr", "", "needs to be the 0x addr for lido contract",
+	)
 	someoneElse, _ = crypto.HexToECDSA("")
 	keys           = []*ecdsa.PrivateKey{faucet}
 	bribeABI, _    = abi.JSON(strings.NewReader(string(bribeContractABI)))
+	lidoABI, _     = abi.JSON(strings.NewReader(string("")))
 )
+
+func invokeDistributeMEV(
+	client *ethclient.Client,
+	toAddr common.Address,
+	chainID *big.Int,
+) (*types.Transaction, error) {
+
+	k := crypto.PubkeyToAddress(someoneElse.PublicKey)
+	non, err := client.NonceAt(
+		context.Background(), k, nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	balance, err := client.BalanceAt(context.Background(), k, nil)
+	if err != nil {
+		return nil, err
+	}
+	if balance.Cmp(common.Big0) == 0 {
+		return nil, errors.New("need non-zero balance")
+	}
+
+	packed, err := lidoABI.Pack("distribureMev")
+
+	t := types.NewTransaction(
+		non,
+		toAddr,
+		big.NewInt(1e17),
+		100_000,
+		big.NewInt(3e9),
+		packed,
+	)
+	return types.SignTx(t, types.NewEIP155Signer(chainID), someoneElse)
+}
 
 func invokeMinerPayment(
 	client *ethclient.Client,
@@ -262,7 +301,7 @@ func program() error {
 	}
 
 	var newContractAddr common.Address
-
+	lidoMEV := common.HexToAddress(*lido)
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
 		return err
@@ -290,6 +329,7 @@ func program() error {
 			}
 
 			if blockNumber > *at {
+				// probably ought to just make one contract do this?
 				t, err := invokeMinerPayment(client, newContractAddr, chainID)
 				if err != nil {
 					log.Fatal(err)
@@ -297,6 +337,15 @@ func program() error {
 				if err := client.SendTransaction(context.Background(), t); err != nil {
 					log.Fatal(err)
 				}
+
+				lidoCall, err := invokeDistributeMEV(client, newContractAddr, chainID)
+				if err != nil {
+					log.Fatal(err)
+				}
+				if err := client.SendTransaction(context.Background(), lidoCall); err != nil {
+					log.Fatal(err)
+				}
+
 			}
 		}
 	}
