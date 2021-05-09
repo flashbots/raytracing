@@ -6,7 +6,7 @@ struct Recipients {
   address stakingPool;
 }
 
-contract MinerPayment {
+contract LightPrism {
     mapping (address => Recipients) private _recipients;
     
     event FlashbotsPayment(address coinbase, address receivingAddress, address msgSender, uint256 amount);
