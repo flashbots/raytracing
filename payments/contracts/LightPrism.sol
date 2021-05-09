@@ -17,7 +17,8 @@ contract LightPrism {
     }
     
     function setRecipients(Recipients calldata _newReceivingAddress) external {
-        _recipients[msg.sender] = _newReceivingAddress;
+        // just simplify for now <- this should only be valid of msg.sender is coinbase
+        _recipients[block.coinbase] = _newReceivingAddress;
         emit RecipientUpdate(msg.sender, _newReceivingAddress);
     }
     
