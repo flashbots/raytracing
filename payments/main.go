@@ -251,14 +251,16 @@ func stake(
 		}
 	}
 
-	nonce, err := client.NonceAt(context.Background(), deployer, nil)
+	nonce, err := client.NonceAt(
+		context.Background(),
+		crypto.PubkeyToAddress(stakers[0].Key.PublicKey), nil,
+	)
 	if err != nil {
 		return err
 	}
 
-	packed, err := abiLido.Pack("depositBufferedEther")
+	packed, err := abiLido.Pack("depositBufferedEther", big.NewInt(9e18))
 	if err != nil {
-		fmt.Println("died here A")
 		return err
 	}
 	t := types.NewTransaction(
@@ -267,8 +269,6 @@ func stake(
 
 	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), stakers[0].Key)
 	if err != nil {
-		fmt.Println("died here B")
-
 		return err
 	}
 	time.Sleep(time.Millisecond * 100)
