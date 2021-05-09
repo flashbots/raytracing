@@ -1,73 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.4.22 <0.9.0;
+pragma solidity 0.8.4;
 
-struct Payee {
-  address entity;
-  uint256 already_paid_out;
-}
+// This contract accepts ETH, delivering it to the miner of the current block.
+// The FlashbotsPayment event is interpretted by Flashbots MEV-geth at block construction time to determine bundle profitability
+// queueEther() can be used if multiple transactions pay the miner, saving gas from emitting multiple events and sending ETH twice
 
-contract MEVPayMaster is Ownable {
-  uint256 private total_ever_received;
-  uint256 private total_ever_paid_out;
+contract LightPrism {
+    event FlashbotsPayment(address coinbase, address msgSender, uint256 amount);
 
-  event ValidatorPaid(uint256 amount);
-  event StakingPoolPaid(uint256 amount);
+    receive() external payable {
+        _payMiner();
+    }
 
-  Payee public validator;
-  Payee public staking_pool;
-  Payee public coinbase;
+    function _payMiner() private {
+        uint256 amount = address(this).balance;
+        payable(block.coinbase).transfer(amount);
+        emit FlashbotsPayment(block.coinbase, msg.sender, amount);
+    }
 
-  fallback() external payable {
-    require(_msgSender() == owner());
-    total_ever_received += msg.value;
-  }
+    function payMiner() external payable {
+        _payMiner();
+    }
 
-  function validator_register(address entity)
-    external
-    onlyOwner
-    returns (bool)
-  {
-    require(msg.sender == block.coinbase && entity != address(0));
-    validator.entity = entity;
-    return true;
-  }
-
-  function staking_pool_register(address entity)
-    external
-    onlyOwner
-    returns (bool)
-  {
-    require(msg.sender == block.coinbase && entity != address(0));
-    staking_pool.entity = entity;
-    return true;
-  }
-
-  function coinbase_cut(uint256 gross_owed) private {
-    uint256 net_owed = gross_owed - coinbase.already_paid_out;
-    require(_amount < net_owed);
-    coinbase.already_paid_out += _amount;
-    address(this).transfer(block.coinbase, _amount);
-  }
-
-  function validator_collect(uint256 _amount) external {
-    require(msg.sender == validator.entity);
-    uint256 gross_owed = (100 * (total_ever_received) * 33) / 100;
-    uint256 net_owed = gross_owed - validator.already_paid_out;
-    require(_amount < net_owed);
-    validator.already_paid_out += _amount;
-    address(this).transfer(msg.sender, _amount);
-    coinbase_cut(gross_owed);
-    emit ValidatorPaid(_amount);
-  }
-
-  function staking_pool_collect(uint256 _amount) external {
-    require(msg.sender == staking_pool.entity);
-    uint256 gross_owed = (100 * (total_ever_received) * 33) / 100;
-    uint256 net_owed = gross_owed - staking_pool.already_paid_out;
-    require(_amount < net_owed);
-    staking_pool.already_paid_out += _amount;
-    address(this).transfer(msg.sender, _amount);
-    coinbase_cut(gross_owed);
-    emit StakingPoolPaid(_amount);
-  }
+    function queueEther() external payable { }
 }
