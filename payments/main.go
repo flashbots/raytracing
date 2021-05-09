@@ -123,7 +123,7 @@ func deployLidoContract(
 	from common.Address,
 	client *ethclient.Client,
 	chainID *big.Int,
-	args ...[]byte,
+	args []byte,
 ) (*types.Transaction, error) {
 
 	nonce, err := client.NonceAt(context.Background(), from, nil)
@@ -131,11 +131,7 @@ func deployLidoContract(
 		return nil, err
 	}
 
-	payload := common.Hex2Bytes(lidoByteCode)
-
-	for _, k := range args {
-		payload = append(payload, k...)
-	}
+	payload := append(common.Hex2Bytes(lidoByteCode), args...)
 
 	t := types.NewContractCreation(
 		nonce, new(big.Int), 400_000, big.NewInt(10e9), payload,
@@ -368,6 +364,7 @@ func program() error {
 		oracleAddr                = deployerAddr
 		treasuryAddr              = crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	)
+	_ = lightPrismAddr
 
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
@@ -410,18 +407,23 @@ func program() error {
 			}
 
 			if blockNumber == blockDeployLido {
+				fmt.Println("try to deploy")
+				packed, err := abiLido.Pack("", depositContractAddr,
+					oracleAddr,
+					nodeOperatorsRegistryAddr,
+					treasuryAddr,
+					treasuryAddr,
+				)
+				if err != nil {
+					log.Fatal(err)
+				}
+
 				t, err := deployLidoContract(
-					deployerAddr,
-					client, chainID,
-					// constructor args
-					depositContractAddr.Bytes(),
-					oracleAddr.Bytes(),
-					nodeOperatorsRegistryAddr.Bytes(),
-					treasuryAddr.Bytes(),
-					treasuryAddr.Bytes(),
+					deployerAddr, client, chainID, packed,
 				)
 
 				if err != nil {
+					fmt.Println("died here")
 					log.Fatal(err)
 				}
 
@@ -434,20 +436,21 @@ func program() error {
 				continue
 			}
 
-			if blockNumber == blockDeployLightPrism {
-				t, err := deployLidoContract(deployerAddr, client, chainID)
-				if err != nil {
-					return err
-				}
+			// if blockNumber == blockDeployLightPrism {
+			// 	t, err := deployLidoContract(deployerAddr, client, chainID)
+			// 	if err != nil {
+			// 		return err
+			// 	}
 
-				lightPrismAddr = crypto.CreateAddress(
-					crypto.PubkeyToAddress(deployerKey.PublicKey),
-					t.Nonce(),
-				)
+			// 	lightPrismAddr = crypto.CreateAddress(
+			// 		crypto.PubkeyToAddress(deployerKey.PublicKey),
+			// 		t.Nonce(),
+			// 	)
 
-				fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
-				continue
-			}
+			// 	fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
+			// 	continue
+			// }
+
 		}
 	}
 }
