@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/big"
 	"math/rand"
@@ -18,15 +20,22 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
+)
+
+const (
+	addrsDeployedFile = "deployed-addrs.json"
 )
 
 var (
-	clientDial = flag.String(
-		"client_dial", "ws://127.0.0.1:8545", "could be websocket or IPC",
+	addrsDeployed = flag.String("addrs", addrsDeployedFile, "already deployed addrs")
+	freshDeploy   = flag.Bool("fresh", true, "fresh contract deployments")
+	clientDial    = flag.String(
+		"client_dial", eth1, "could be websocket or IPC",
 	)
-	// meh - these came from ganache - so whatever
+
 	deployerKey, _ = crypto.HexToECDSA(
-		"57bae31ef9370140e635ba1fd70707f7a33076827490e4ad5d3eb87784710ce7",
+		"7074988e20b9aa7c58ea6dd5a56aaf5faf4bedc2ea7da7b02adfc97c92b7ceb3",
 	)
 	treasuryKey, _ = crypto.HexToECDSA(
 		"0252d6c2476583794ac844385f63040d76f1904978a700e59a37c4e9f68c2f30",
@@ -114,34 +123,23 @@ func deployMEVDistributor(
 }
 
 func contractDeploy(
+	nonce uint64,
 	from common.Address,
 	client *ethclient.Client,
 	chainID *big.Int,
 	rawByteCode []byte,
 ) (*types.Transaction, error) {
-	nonce, err := client.NonceAt(context.Background(), from, nil)
-	if err != nil {
-		return nil, err
-	}
 
 	t := types.NewContractCreation(
 		nonce, new(big.Int), 400_000, big.NewInt(10e9), rawByteCode,
 	)
 
-	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+	t, err := types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 	if err != nil {
 		return nil, err
 	}
 	return t, client.SendTransaction(context.Background(), t)
 }
-
-const (
-	blockDeployMock             = 3
-	blockDeployOperatorRegistry = 4
-	blockDeployLido             = 5
-	blockDeployLightPrism       = 6
-	blockDeployMEVDistributor   = 7
-)
 
 var (
 	stakers   []staker
@@ -164,7 +162,6 @@ func init() {
 		crypto.PubkeyToAddress(s2.PublicKey),
 		crypto.PubkeyToAddress(s3.PublicKey),
 	}
-
 	stakers = []staker{
 		{s1, big.NewInt(1e18)},
 		{s2, big.NewInt(1e18)},
@@ -349,19 +346,24 @@ func distribureMev() {
 	//
 }
 
+const (
+	eth1 = "ws://138.68.75.41:8546/"
+	eth2 = "ws://138.68.75.41:5051/"
+)
+
 func program() error {
 	client, err := ethclient.Dial(*clientDial)
 	if err != nil {
 		return err
 	}
 
-	ch := make(chan *types.Header)
-	sub, err := client.SubscribeNewHead(
-		context.Background(), ch,
-	)
-
-	if err != nil {
-		return err
+	type NeededAddrs struct {
+		LightPrismAddr            common.Address
+		LidoContractAddr          common.Address
+		LidoMEVContractAddr       common.Address
+		DepositContractAddr       common.Address
+		NodeOperatorsRegistryAddr common.Address
+		OracleAddr                common.Address
 	}
 
 	var (
@@ -374,82 +376,244 @@ func program() error {
 		oracleAddr                = deployerAddr
 		treasuryAddr              = crypto.PubkeyToAddress(treasuryKey.PublicKey)
 	)
+	_ = lightPrismAddr
 
 	chainID, err := client.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
 
-	for {
-		select {
-		case e := <-sub.Err():
-			return e
-		case incoming := <-ch:
-			blockNumber := incoming.Number.Uint64()
+	if *freshDeploy {
 
-			if blockNumber == blockDeployMock {
-				t, err := contractDeploy(
-					deployerAddr,
-					client, chainID, common.Hex2Bytes(depositContractByteCode),
-				)
-				if err != nil {
-					log.Fatal(err)
-				}
-				depositContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
-				continue
+		currentBlock, err := client.BlockByNumber(context.Background(), nil)
+		if err != nil {
+			return err
+		}
+		fmt.Println("beginning deployment of contracts at live block number",
+			currentBlock.Header().Number,
+		)
+		nonce, err := client.NonceAt(
+			context.Background(), deployerAddr, nil,
+		)
+
+		t, err := contractDeploy(
+			nonce,
+			deployerAddr,
+			client, chainID, common.Hex2Bytes(depositContractByteCode),
+		)
+		if err != nil {
+			return errors.Wrapf(err, "deposit contract")
+		}
+
+		depositContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
+		t, err = contractDeploy(
+			nonce+1,
+			deployerAddr,
+			client, chainID, common.Hex2Bytes(nodeOperatorsRegistryByteCode),
+		)
+		if err != nil {
+			return errors.Wrapf(err, "node operators registry")
+		}
+		nodeOperatorsRegistryAddr = crypto.CreateAddress(
+			deployerAddr,
+			t.Nonce()+1,
+		)
+
+		fmt.Println("deployed node operator registry at ", nodeOperatorsRegistryAddr.Hex())
+		packed, err := abiLido.Pack("", depositContractAddr,
+			oracleAddr,
+			nodeOperatorsRegistryAddr,
+			treasuryAddr,
+			treasuryAddr,
+		)
+
+		if err != nil {
+			return errors.Wrapf(err, "deposit contract addr")
+		}
+
+		t2, err := deployLidoContract(
+			deployerAddr, client, chainID, packed,
+		)
+
+		if err != nil {
+			return errors.Wrapf(err, "deposit contract addr")
+		}
+
+		lidoContractAddr = crypto.CreateAddress(deployerAddr, t2.Nonce())
+		fmt.Println("deployed lido contract addr ", lidoContractAddr.Hex())
+		packed, err = abiRegistry.Pack("setLido", lidoContractAddr)
+		if err != nil {
+			return errors.Wrapf(err, "deposit contract addr")
+		}
+		t = types.NewTransaction(
+			nonce+3, nodeOperatorsRegistryAddr, new(big.Int),
+			200_000, big.NewInt(1e9), packed,
+		)
+
+		t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+
+		if err := client.SendTransaction(context.Background(), t); err != nil {
+			return err
+		}
+
+		cred := [32]byte{}
+		rand.Read(cred[:])
+
+		packed, err = abiLido.Pack("setWithdrawalCredentials", cred)
+		t = types.NewTransaction(
+			nonce, lidoContractAddr, new(big.Int),
+			200_000, big.NewInt(1e9), packed,
+		)
+		t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+		if err := client.SendTransaction(context.Background(), t); err != nil {
+			log.Fatal(err)
+		}
+
+		packed, err = abiLido.Pack("resume")
+		if err != nil {
+			log.Fatal(err)
+		}
+		nonce, err = client.NonceAt(
+			context.Background(), deployerAddr, nil,
+		)
+		t = types.NewTransaction(
+			nonce, lidoContractAddr, new(big.Int),
+			200_000, big.NewInt(1e9), packed,
+		)
+		t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+		if err := client.SendTransaction(context.Background(), t); err != nil {
+			return err
+		}
+
+		packed, err = abiMEVLido.Pack(
+			"", lidoContractAddr, new(big.Int).Mul(big.NewInt(5), big.NewInt(10e17)),
+		)
+
+		if err != nil {
+			return err
+		}
+
+		t, err = deployMEVDistributor(
+			deployerAddr, client, chainID, packed,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		lidoMEVContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
+		fmt.Println("lidoMEV contract addr deployed at", lidoMEVContractAddr.Hex())
+		// # 50% of the received MEV goes to validators, 50% to stakers
+		// distributor = LidoMevDistributor.deploy(lido, 5 * 10**17, {'from': deployer})
+
+		if err := addOperators(client, nodeOperatorsRegistryAddr,
+			operators, deployerAddr, chainID,
+		); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := stake(
+			client, lidoContractAddr, stakers, oracleAddr, chainID, deployerAddr,
+		); err != nil {
+			fmt.Println("died here B")
+			log.Fatal(err)
+		}
+		fmt.Println("Added operators & added stakers")
+		t, err = deployLightPrism(deployerAddr, client, chainID)
+		if err != nil {
+			return err
+		}
+
+		lightPrismAddr = crypto.CreateAddress(
+			crypto.PubkeyToAddress(deployerKey.PublicKey),
+			t.Nonce(),
+		)
+
+		{
+			packed, err := abiLightPrism.Pack("queueEther")
+			if err != nil {
+				return err
 			}
 
-			if blockNumber == blockDeployOperatorRegistry {
-				t, err := contractDeploy(
-					deployerAddr,
-					client, chainID, common.Hex2Bytes(nodeOperatorsRegistryByteCode),
-				)
-				if err != nil {
-					log.Fatal(err)
-				}
-				nodeOperatorsRegistryAddr = crypto.CreateAddress(
-					deployerAddr,
-					t.Nonce()+1,
-				)
-				fmt.Println("deployed node operator registry at ", nodeOperatorsRegistryAddr.Hex())
-				continue
+			nonce, err := client.NonceAt(
+				context.Background(), deployerAddr, nil,
+			)
+			t = types.NewTransaction(
+				nonce, lightPrismAddr, big.NewInt(3e18),
+				200_000, big.NewInt(1e9), packed,
+			)
+			t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+			if err := client.SendTransaction(context.Background(), t); err != nil {
+				log.Fatal(err)
 			}
+		}
 
-			if blockNumber == blockDeployLido {
-				fmt.Println("Deploying Lido Contract")
-				packed, err := abiLido.Pack("", depositContractAddr,
-					oracleAddr,
-					nodeOperatorsRegistryAddr,
-					treasuryAddr,
-					treasuryAddr,
-				)
+		packed, err = abiLightPrism.Pack(
+			"setRecipients", common.Address{}, lidoContractAddr,
+		)
+		if err != nil {
+			return err
+		}
+
+		nonce, err = client.NonceAt(
+			context.Background(), deployerAddr, nil,
+		)
+		t = types.NewTransaction(
+			nonce, lightPrismAddr, new(big.Int),
+			200_000, big.NewInt(1e9), packed,
+		)
+		t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+		if err := client.SendTransaction(context.Background(), t); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("set recipients worked")
+
+		allAddrs := NeededAddrs{
+			LightPrismAddr:            lightPrismAddr,
+			LidoContractAddr:          lidoContractAddr,
+			LidoMEVContractAddr:       lidoMEVContractAddr,
+			DepositContractAddr:       depositContractAddr,
+			NodeOperatorsRegistryAddr: nodeOperatorsRegistryAddr,
+			OracleAddr:                deployerAddr,
+		}
+		s, _ := json.MarshalIndent(allAddrs, "  ", "  ")
+		if err := ioutil.WriteFile(addrsDeployedFile, s, 0644); err != nil {
+			fmt.Println("some problem on writing the file of nodes")
+		}
+
+		return nil
+	} else {
+		// not a fresh deployment - so lets
+		var p NeededAddrs
+		common.LoadJSON(addrsDeployedFile, &p)
+		pret, _ := json.MarshalIndent(p, " ", " ")
+		fmt.Println("Loaded up previously deployed addrs ", string(pret))
+		query := ethereum.FilterQuery{
+			FromBlock: big.NewInt(0),
+			ToBlock:   big.NewInt(10000000000),
+			Addresses: []common.Address{p.LightPrismAddr},
+		}
+		logs := make(chan types.Log)
+		sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		go func() {
+			tick := time.NewTicker(time.Second * 2)
+			for range tick.C {
+				fmt.Println("tick tick start ")
+
+				packed, err := abiLightPrism.Pack("payMiner")
 				if err != nil {
-					log.Fatal(err)
+					fmt.Println("abi opacking pay miner", err)
+					continue
 				}
-
-				t, err := deployLidoContract(
-					deployerAddr, client, chainID, packed,
-				)
-
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				lidoContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
-				fmt.Println("deployed lido contract addr ", lidoContractAddr.Hex())
-
-				packed, err = abiRegistry.Pack("setLido", lidoContractAddr)
-
-				if err != nil {
-					fmt.Println("died a")
-					return err
-				}
-
 				nonce, err := client.NonceAt(
 					context.Background(), deployerAddr, nil,
 				)
-				t = types.NewTransaction(
-					nonce, nodeOperatorsRegistryAddr, new(big.Int),
+				t := types.NewTransaction(
+					nonce, p.LightPrismAddr, new(big.Int),
 					200_000, big.NewInt(1e9), packed,
 				)
 				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
@@ -457,205 +621,62 @@ func program() error {
 					log.Fatal(err)
 				}
 
-				cred := [32]byte{}
-				rand.Read(cred[:])
-
-				packed, err = abiLido.Pack("setWithdrawalCredentials", cred)
+				fmt.Println("call to pay miner worked")
+				packed, err = abiLightPrism.Pack("queueEther")
 
 				if err != nil {
-					log.Fatal(err)
+					fmt.Println("abi packing queue ether", err)
+					continue
 				}
+
 				nonce, err = client.NonceAt(
 					context.Background(), deployerAddr, nil,
 				)
+
 				t = types.NewTransaction(
-					nonce, lidoContractAddr, new(big.Int),
+					nonce, p.LightPrismAddr, big.NewInt(3e18),
 					200_000, big.NewInt(1e9), packed,
 				)
+
 				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 				if err := client.SendTransaction(context.Background(), t); err != nil {
 					log.Fatal(err)
 				}
-
-				packed, err = abiLido.Pack("resume")
-				if err != nil {
-					log.Fatal(err)
-				}
-				nonce, err = client.NonceAt(
-					context.Background(), deployerAddr, nil,
-				)
-				t = types.NewTransaction(
-					nonce, lidoContractAddr, new(big.Int),
-					200_000, big.NewInt(1e9), packed,
-				)
-				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
-				if err := client.SendTransaction(context.Background(), t); err != nil {
-					return err
-				}
-
-				packed, err = abiMEVLido.Pack(
-					"", lidoContractAddr, new(big.Int).Mul(big.NewInt(5), big.NewInt(10e17)),
-				)
-
-				if err != nil {
-					return err
-				}
-
-				t, err = deployMEVDistributor(
-					deployerAddr, client, chainID, packed,
-				)
-
-				if err != nil {
-					return err
-				}
-
-				lidoMEVContractAddr = crypto.CreateAddress(deployerAddr, t.Nonce())
-				fmt.Println("lidoMEV contract addr deployed at", lidoMEVContractAddr.Hex())
-				// # 50% of the received MEV goes to validators, 50% to stakers
-				// distributor = LidoMevDistributor.deploy(lido, 5 * 10**17, {'from': deployer})
-
-				if err := addOperators(client, nodeOperatorsRegistryAddr,
-					operators, deployerAddr, chainID,
-				); err != nil {
-					log.Fatal(err)
-				}
-
-				if err := stake(
-					client, lidoContractAddr, stakers, oracleAddr, chainID, deployerAddr,
-				); err != nil {
-					fmt.Println("died here B")
-					log.Fatal(err)
-				}
-				fmt.Println("Added operators & added stakers")
-				continue
+				fmt.Println("tick tick end ")
 			}
+		}()
 
-			if blockNumber == blockDeployLightPrism {
-				t, err := deployLightPrism(deployerAddr, client, chainID)
-				if err != nil {
-					return err
+		type PrismFlashbotsPayment struct {
+			Coinbase         common.Address
+			ReceivingAddress common.Address
+			MsgSender        common.Address
+			Amount           *big.Int
+			Raw              types.Log // Blockchain specific contextual infos
+		}
+
+		type Recipients struct {
+			Executor    common.Address
+			StakingPool common.Address
+		}
+
+		for {
+			select {
+			case err := <-sub.Err():
+				log.Fatal(err)
+			case vLog := <-logs:
+				event := new(PrismFlashbotsPayment)
+				if err := abiLightPrism.UnpackIntoInterface(
+					event, "FlashbotsPayment", vLog.Data,
+				); err != nil {
+					fmt.Println("problem on unpacking inerface", err)
 				}
 
-				lightPrismAddr = crypto.CreateAddress(
-					crypto.PubkeyToAddress(deployerKey.PublicKey),
-					t.Nonce(),
-				)
-
-				go func() {
-					query := ethereum.FilterQuery{
-						FromBlock: big.NewInt(0),
-						ToBlock:   big.NewInt(100000),
-						Addresses: []common.Address{lightPrismAddr},
-					}
-					logs := make(chan types.Log)
-					sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
-					if err != nil {
-						log.Fatal(err)
-					}
-
-					go func() {
-						for {
-							select {
-							case err := <-sub.Err():
-								log.Fatal(err)
-							case vLog := <-logs:
-								fmt.Println("YES")
-								fmt.Println(vLog) // pointer to event log
-							}
-						}
-					}()
-
-					// yea okay - so ganache-cli wasn't giving back the events as needed
-					// and we are out of time, so whatever.
-					fmt.Println("Watching events from lightPrism contract")
-					time.Sleep(time.Second)
-					fmt.Println("FlashbotsPayment event raised paid to staking pool &coinbase")
-				}()
-
-				fmt.Println("\tdeployed light prism contract ", lightPrismAddr.Hex())
-
-				{
-					packed, err := abiLightPrism.Pack("queueEther")
-					if err != nil {
-						return err
-					}
-
-					nonce, err := client.NonceAt(
-						context.Background(), deployerAddr, nil,
-					)
-					t = types.NewTransaction(
-						nonce, lightPrismAddr, big.NewInt(3e18),
-						200_000, big.NewInt(1e9), packed,
-					)
-					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
-					if err := client.SendTransaction(context.Background(), t); err != nil {
-						log.Fatal(err)
-					}
-				}
-
-				packed, err := abiLightPrism.Pack(
-					"setRecipients", common.Address{}, lidoContractAddr,
-				)
-				if err != nil {
-					return err
-				}
-
-				nonce, err := client.NonceAt(
-					context.Background(), deployerAddr, nil,
-				)
-				t = types.NewTransaction(
-					nonce, lightPrismAddr, new(big.Int),
-					200_000, big.NewInt(1e9), packed,
-				)
-				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
-				if err := client.SendTransaction(context.Background(), t); err != nil {
-					log.Fatal(err)
-				}
-				fmt.Println("set recipients worked")
-
-				{
-					packed, err := abiLightPrism.Pack("payMiner")
-					if err != nil {
-						return err
-					}
-					nonce, err := client.NonceAt(
-						context.Background(), deployerAddr, nil,
-					)
-					t = types.NewTransaction(
-						nonce, lightPrismAddr, new(big.Int),
-						200_000, big.NewInt(1e9), packed,
-					)
-					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
-					if err := client.SendTransaction(context.Background(), t); err != nil {
-						log.Fatal(err)
-					}
-					fmt.Println("call to pay miner worked")
-				}
-
-				{
-					packed, err := abiLightPrism.Pack("queueEther")
-					if err != nil {
-						return err
-					}
-
-					nonce, err := client.NonceAt(
-						context.Background(), deployerAddr, nil,
-					)
-					t = types.NewTransaction(
-						nonce, lightPrismAddr, big.NewInt(3e18),
-						200_000, big.NewInt(1e9), packed,
-					)
-					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
-					if err := client.SendTransaction(context.Background(), t); err != nil {
-						log.Fatal(err)
-					}
-				}
-
-				continue
+				fmt.Println("did event")
 			}
-
 		}
 	}
+
+	return nil
 }
 
 func main() {
