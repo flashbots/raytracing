@@ -589,60 +589,67 @@ func program() error {
 		pret, _ := json.MarshalIndent(p, " ", " ")
 		fmt.Println("Loaded up previously deployed addrs ", string(pret))
 		query := ethereum.FilterQuery{
-			FromBlock: big.NewInt(0),
-			ToBlock:   big.NewInt(10000000000),
-			Addresses: []common.Address{p.LightPrismAddr},
+			Addresses: []common.Address{
+				p.LightPrismAddr, p.LidoContractAddr, p.LidoMEVContractAddr,
+				p.DepositContractAddr, p.NodeOperatorsRegistryAddr,
+			},
 		}
+
 		logs := make(chan types.Log)
 		sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		go func() {
-			tick := time.NewTicker(time.Second * 2)
+			tick := time.NewTicker(time.Second * 10)
 			for range tick.C {
-				fmt.Println("tick tick start ")
+				fmt.Println("Kicking off arbitrage txn")
 
-				packed, err := abiLightPrism.Pack("payMiner")
-				if err != nil {
-					fmt.Println("abi opacking pay miner", err)
-					continue
-				}
-				nonce, err := client.NonceAt(
+				packedQueueEther, _ := abiLightPrism.Pack("queueEther")
+				nonce, _ := client.NonceAt(
 					context.Background(), deployerAddr, nil,
 				)
 				t := types.NewTransaction(
-					nonce, p.LightPrismAddr, new(big.Int),
-					200_000, big.NewInt(1e9), packed,
+					nonce, p.LightPrismAddr, big.NewInt(2e17),
+					200_000, big.NewInt(1e9), packedQueueEther,
 				)
 				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 				if err := client.SendTransaction(context.Background(), t); err != nil {
 					log.Fatal(err)
 				}
 
-				fmt.Println("call to pay miner worked")
-				packed, err = abiLightPrism.Pack("queueEther")
+				packedPayMiner, _ := abiLightPrism.Pack("payMiner")
 
-				if err != nil {
-					fmt.Println("abi packing queue ether", err)
-					continue
+				{
+					if err != nil {
+						fmt.Println("abi opacking pay miner", err)
+						continue
+					}
+
+					fmt.Println("call to pay miner worked")
+
+					if err != nil {
+						fmt.Println("abi packing queue ether", err)
+						continue
+					}
+
+					nonce, err = client.NonceAt(
+						context.Background(), deployerAddr, nil,
+					)
+
+					t = types.NewTransaction(
+						nonce, p.LightPrismAddr, big.NewInt(3e18),
+						200_000, big.NewInt(1e9), packedPayMiner,
+					)
+
+					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+					if err := client.SendTransaction(context.Background(), t); err != nil {
+						log.Fatal(err)
+					}
 				}
 
-				nonce, err = client.NonceAt(
-					context.Background(), deployerAddr, nil,
-				)
-
-				t = types.NewTransaction(
-					nonce, p.LightPrismAddr, big.NewInt(3e18),
-					200_000, big.NewInt(1e9), packed,
-				)
-
-				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
-				if err := client.SendTransaction(context.Background(), t); err != nil {
-					log.Fatal(err)
-				}
-				fmt.Println("tick tick end ")
+				fmt.Println("arbitrage round ended")
 			}
 		}()
 
@@ -670,8 +677,7 @@ func program() error {
 				); err != nil {
 					fmt.Println("problem on unpacking inerface", err)
 				}
-
-				fmt.Println("did event")
+				fmt.Println("did event", event)
 			}
 		}
 	}
