@@ -63,7 +63,7 @@ func deployLidoContract(
 	payload := append(common.Hex2Bytes(lidoByteCode), args...)
 
 	t := types.NewContractCreation(
-		nonce, new(big.Int), 400_000, big.NewInt(10e9), payload,
+		nonce, new(big.Int), 400_0000, big.NewInt(10e9), payload,
 	)
 
 	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
@@ -86,7 +86,7 @@ func deployLightPrism(
 	}
 
 	t := types.NewContractCreation(
-		nonce, new(big.Int), 400_000, big.NewInt(10e9), common.Hex2Bytes(lightPrismByteCode),
+		nonce, new(big.Int), 4_000_000, big.NewInt(10e9), common.Hex2Bytes(lightPrismByteCode),
 	)
 
 	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
@@ -112,7 +112,7 @@ func deployMEVDistributor(
 	payload := append(common.Hex2Bytes(lidoMEVdistribByteCode), args...)
 
 	t := types.NewContractCreation(
-		nonce, new(big.Int), 400_000, big.NewInt(10e9), payload,
+		nonce, new(big.Int), 4_000_000, big.NewInt(10e9), payload,
 	)
 
 	t, err = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
@@ -132,7 +132,7 @@ func contractDeploy(
 ) (*types.Transaction, error) {
 
 	t := types.NewContractCreation(
-		nonce, new(big.Int), 400_000, big.NewInt(10e9), rawByteCode,
+		nonce, new(big.Int), 400_000_0, big.NewInt(10e9), rawByteCode,
 	)
 
 	t, err := types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
@@ -384,6 +384,9 @@ func program() error {
 		return err
 	}
 
+	deployerBal, _ := client.BalanceAt(context.Background(), deployerAddr, nil)
+	fmt.Println("deployer addr has this much eth on hand", deployerBal, deployerAddr.Hex())
+
 	if *checkHash != "" {
 		recipt, err := client.TransactionReceipt(context.Background(), common.HexToHash(*checkHash))
 		if err != nil {
@@ -525,10 +528,10 @@ func program() error {
 		if err := stake(
 			client, lidoContractAddr, stakers, oracleAddr, chainID, deployerAddr,
 		); err != nil {
-			fmt.Println("died here B")
 			log.Fatal(err)
 		}
 		fmt.Println("Added operators & added stakers")
+
 		t, err = deployLightPrism(deployerAddr, client, chainID)
 		if err != nil {
 			return err
@@ -646,7 +649,9 @@ func program() error {
 
 					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 
-					fmt.Println("packed miner called", t.Hash().Hex())
+					pret, _ := json.MarshalIndent(t, " ", " ")
+
+					fmt.Println("packed miner called", t.Hash().Hex(), string(pret))
 
 					if err := client.SendTransaction(context.Background(), t); err != nil {
 						log.Fatal(err)
