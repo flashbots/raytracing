@@ -1,5 +1,5 @@
 # Ray Tracing
-Eth2-MEV project with liquid staking (Flashbots-Lido-Nethermind)
+Eth2-MEV project with liquid staking (Flashbots-Lido-Nethermind). Notes: https://hackmd.io/riaJ_3SmQmOrXFv6rZewuQ?view
 
 What you need to setup:
 
