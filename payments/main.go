@@ -379,10 +379,9 @@ func program() error {
 	deployerBal, _ := client.BalanceAt(context.Background(), deployerAddr, nil)
 	deployerNonce, _ := client.NonceAt(context.Background(), deployerAddr, nil)
 	fmt.Println(
-		"deployer addr has this much eth on hand",
-		deployerBal,
+		"deployer addr", deployerAddr.Hex(), " has this much eth on hand\n",
+		deployerBal, "\n",
 		"and this nonce", deployerNonce,
-		deployerAddr.Hex(),
 	)
 
 	if a := *checkAddrContract; a != "" {
@@ -647,9 +646,11 @@ func program() error {
 				nonce, _ := client.NonceAt(
 					context.Background(), deployerAddr, nil,
 				)
+				packedQueueEther = nil
+
 				t := types.NewTransaction(
-					nonce, p.LightPrismAddr, big.NewInt(2e17),
-					200_000, big.NewInt(1e9), packedQueueEther,
+					nonce, p.LightPrismAddr, big.NewInt(3e17),
+					200_000, big.NewInt(10e9), packedQueueEther,
 				)
 				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 
@@ -659,23 +660,31 @@ func program() error {
 					log.Fatal(err)
 				}
 
-				packedPayMiner, _ := abiLightPrism.Pack("payMiner")
+				packedPayMiner, err := abiLightPrism.Pack("payMiner")
+				if err != nil {
+					log.Fatal(err)
+				}
 
 				{
 					nonce, err = client.NonceAt(
 						context.Background(), deployerAddr, nil,
 					)
 
+					packedPayMiner = nil
+
 					t = types.NewTransaction(
-						nonce, p.LightPrismAddr, big.NewInt(3e18),
-						200_000, big.NewInt(1e9), packedPayMiner,
+						nonce, p.LightPrismAddr, big.NewInt(1e18),
+						200_000, big.NewInt(10e9), packedPayMiner,
 					)
 
 					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
 
 					pret, _ := json.MarshalIndent(t, " ", " ")
 
-					fmt.Println("packed miner called", t.Hash().Hex(), string(pret))
+					fmt.Println(
+						"packed payminer called txn hash:",
+						t.Hash().Hex(), string(pret),
+					)
 
 					if err := client.SendTransaction(context.Background(), t); err != nil {
 						log.Fatal(err)

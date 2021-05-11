@@ -1,0 +1,8 @@
+{
+    "LightPrismAddr": "0xcc71dfd118f723049ab3d79ea6d1b34b8b4c928a",
+    "LidoContractAddr": "0x5d6d0199912b58220ac15661427af6bf53926385",
+    "LidoMEVContractAddr": "0x6e0332bf5cf40cb789747b7364b10737f8010e26",
+    "DepositContractAddr": "0xcd8f645f11442629df10c14f07e71dec56995d63",
+    "NodeOperatorsRegistryAddr": "0xcb8c87a2dddcb846df0027647e07a3423b94995e",
+    "OracleAddr": "0x756ac76d26f4c9055999c027ee2069ae77107a32"
+  }
