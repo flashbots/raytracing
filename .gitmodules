@@ -4,3 +4,7 @@
 [submodule "nethermind"]
 	path = nethermind
 	url = https://github.com/NethermindEth/nethermind.git
+[submodule "mergenet-tutorial"]
+	path = mergenet-tutorial
+	url = https://github.com/protolambda/mergenet-tutorial.git
+	branch = master
