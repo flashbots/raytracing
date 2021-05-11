@@ -28,6 +28,7 @@ const (
 )
 
 var (
+	checkHash     = flag.String("check", "", "check the txn hash")
 	addrsDeployed = flag.String("addrs", addrsDeployedFile, "already deployed addrs")
 	freshDeploy   = flag.Bool("fresh", true, "fresh contract deployments")
 	clientDial    = flag.String(
@@ -383,6 +384,15 @@ func program() error {
 		return err
 	}
 
+	if *checkHash != "" {
+		recipt, err := client.TransactionReceipt(context.Background(), common.HexToHash(*checkHash))
+		if err != nil {
+			return err
+		}
+		fmt.Println("confirmed txn!", recipt)
+		return nil
+	}
+
 	if *freshDeploy {
 
 		currentBlock, err := client.BlockByNumber(context.Background(), nil)
@@ -615,6 +625,9 @@ func program() error {
 					200_000, big.NewInt(1e9), packedQueueEther,
 				)
 				t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+
+				fmt.Println("packed queue ether", t.Hash().Hex())
+
 				if err := client.SendTransaction(context.Background(), t); err != nil {
 					log.Fatal(err)
 				}
@@ -622,18 +635,6 @@ func program() error {
 				packedPayMiner, _ := abiLightPrism.Pack("payMiner")
 
 				{
-					if err != nil {
-						fmt.Println("abi opacking pay miner", err)
-						continue
-					}
-
-					fmt.Println("call to pay miner worked")
-
-					if err != nil {
-						fmt.Println("abi packing queue ether", err)
-						continue
-					}
-
 					nonce, err = client.NonceAt(
 						context.Background(), deployerAddr, nil,
 					)
@@ -644,6 +645,9 @@ func program() error {
 					)
 
 					t, _ = types.SignTx(t, types.NewEIP155Signer(chainID), deployerKey)
+
+					fmt.Println("packed miner called", t.Hash().Hex())
+
 					if err := client.SendTransaction(context.Background(), t); err != nil {
 						log.Fatal(err)
 					}
@@ -687,6 +691,7 @@ func program() error {
 
 func main() {
 	flag.Parse()
+
 	if err := program(); err != nil {
 		log.Fatal(err)
 	}
