@@ -372,6 +372,9 @@ func program() error {
 	)
 
 	chainID, err := client.ChainID(context.Background())
+	networkID, _ := client.NetworkID(context.Background())
+	fmt.Println("using chain id", chainID, "networkID", networkID)
+
 	if err != nil {
 		return err
 	}
