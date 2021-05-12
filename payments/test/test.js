@@ -21,26 +21,54 @@ contract("LightPrism", (accounts) => {
     const lidoDistr = await LidoMevDistributor.at('0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47');
     const steth = await ERC20.at("0x8953454B243E11012DD63b1849D6a4cdb64aB3EB");
 
+    const executor = "0x3210000000000000000000000000000000000123";
+    const stakingPool = "0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47";
+    console.log("");
+    console.log("=============================");
+    console.log("Setting recipients of the MEV tip (this needs to be set only once by each coinbase)");
+    await lightPrism.setRecipients(executor, stakingPool);
+    console.log("   coinbase    <- " + executor);
+    console.log("   stakingPool <- " + stakingPool);
+    console.log("=============================");
+    console.log("");
+    let executorBalance = await web3.eth.getBalance(executor);
+    console.log("coinbase:", executorBalance);
+    let stakingBalance = await web3.eth.getBalance(stakingPool);
+    console.log("stakingPool:", stakingBalance);
     console.log("");
     console.log("=============================");
     console.log("MEV bundle enqueues 0.001 ETH");
     console.log("=============================");
-
+    console.log("");
     await lightPrism.queueEther({ value: 1000000000000000 });
-    const executor = "0x3210000000000000000000000000000000000123";
-    const stakingPool = "0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47";
     // const recipients = {
     //   executor: "0x0000000000000000000000000000000000000000", // zero will be coinbase
     //   stakingPool: "0xabcd000000000000000000000000000000001234", // lidoDistr contract here
     // };
 
+    console.log("=============================");
+    console.log("stETH balances before");
+    console.log("=============================");
 
-    console.log("=============================");
-    console.log("Setting recipients of the MEV tip (this needs to be set only once by each coinbase)");
-    await lightPrism.setRecipients(executor, stakingPool);
-    console.log("   executor    <- " + executor);
-    console.log("   stakingPool <- " + stakingPool);
-    console.log("=============================");
+    executorBalance = await web3.eth.getBalance(executor);
+    console.log("coinbase:", executorBalance);
+    stakingBalance = await web3.eth.getBalance(stakingPool);
+    console.log("stakingPool:", stakingBalance);
+
+    let opsBalances = await Promise.all(
+      nodeOperators.map((op) => steth.balanceOf(op))
+    );
+    console.log(
+      "node operators:",
+      opsBalances.map((x) => x.toString())
+    );
+    let stakersBalances = await Promise.all(
+      stakers.map((op) => steth.balanceOf(op))
+    );
+    console.log(
+      "stakers:       ",
+      stakersBalances.map((x) => x.toString())
+    );
 
     console.log("");
     console.log("=============================");
@@ -54,22 +82,31 @@ contract("LightPrism", (accounts) => {
     console.log("=============================");
 
     await lightPrism.payMiner();
-    await lidoDistr.distribureMev();
+    executorBalance = await web3.eth.getBalance(executor);
+    console.log("coinbase:", executorBalance);
+    stakingBalance = await web3.eth.getBalance(stakingPool);
+    console.log("stakingPool:", stakingBalance);
+
     console.log("=============================");
     console.log("Lido distributes MEV-tip between stakers and validator nodes operators");
-    console.log("=============================");
-
+    await lidoDistr.distribureMev();
     console.log("=============================");
     console.log("stETH balances after");
     console.log("=============================");
-    let opsBalances = await Promise.all(
+
+    executorBalance = await web3.eth.getBalance(executor);
+    console.log("coinbase:", executorBalance);
+    stakingBalance = await web3.eth.getBalance(stakingPool);
+    console.log("stakingPool:", stakingBalance);
+
+    opsBalances = await Promise.all(
       nodeOperators.map((op) => steth.balanceOf(op))
     );
     console.log(
       "node operators:",
       opsBalances.map((x) => x.toString())
     );
-    let stakersBalances = await Promise.all(
+    stakersBalances = await Promise.all(
       stakers.map((op) => steth.balanceOf(op))
     );
     console.log(
