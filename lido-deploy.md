@@ -1,6 +1,6 @@
 # Deploying Lido
 
-This document describes how to deploy the Lido protocol mock and MEV rewards distributor contract. All commands are tu be run inside the `rayonism-mev-hackathon` directory (a Git submodule of this repo).
+This document describes how to deploy the Lido protocol mock and MEV rewards distributor contract. All commands are to be run inside the `rayonism-mev-hackathon` directory (a Git submodule of this repo).
 
 #### 1. Install the `eth-brownie` Python package
 
