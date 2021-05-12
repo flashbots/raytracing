@@ -30,14 +30,14 @@ contract("LightPrism", (accounts) => {
     // };
 
     console.log("stETH balances before");
-    const opsBalances = await Promise.all(
+    let opsBalances = await Promise.all(
       nodeOperators.map((op) => steth.balanceOf(op))
     );
     console.log(
       "node operators:",
       opsBalances.map((x) => x.toString())
     );
-    const stakersBalances = await Promise.all(
+    let stakersBalances = await Promise.all(
       stakers.map((op) => steth.balanceOf(op))
     );
     console.log(
@@ -56,14 +56,14 @@ contract("LightPrism", (accounts) => {
     console.log("MEV distributed");
 
     console.log("stETH balances after");
-    const opsBalances = await Promise.all(
+    opsBalances = await Promise.all(
       nodeOperators.map((op) => steth.balanceOf(op))
     );
     console.log(
       "node operators:",
       opsBalances.map((x) => x.toString())
     );
-    const stakersBalances = await Promise.all(
+    stakersBalances = await Promise.all(
       stakers.map((op) => steth.balanceOf(op))
     );
     console.log(
