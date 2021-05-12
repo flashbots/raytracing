@@ -1,6 +1,13 @@
 const LightPrism = artifacts.require("LightPrism");
 const LidoMevDistributor = artifacts.require("LidoMevDistributor");
 const ERC20 = artifacts.require("IERC20");
+const fetch = require("node-fetch");
+const { Headers } = fetch;
+
+const headers = new Headers({
+  "content-type": "application/json",
+  accept: "application/json",
+});
 
 const nodeOperators = [
   "0x15a2209CE319914B7E6e39FEF2d04A764e522f7E",
@@ -14,18 +21,37 @@ const stakers = [
   "0x5E90A2d51653CDc1Be80aAeF35Cd41F7cb34c3e4",
 ];
 
+const send_bundle = async (url, txn) => {
+  const resp = await fetch(url, {
+    headers,
+    body: JSON.stringify({
+      id: 1,
+      jsonrpc: "2.0",
+      method: "eth_sendBundle",
+      params: [txn],
+    }),
+  });
+
+  const json = await resp.json();
+  return JSON.parse(json.result);
+};
+
 // Traditional Truffle test
 contract("LightPrism", (accounts) => {
   it("Should pay", async function () {
     const lightPrism = await LightPrism.deployed();
-    const lidoDistr = await LidoMevDistributor.at('0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47');
+    const lidoDistr = await LidoMevDistributor.at(
+      "0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47"
+    );
     const steth = await ERC20.at("0x8953454B243E11012DD63b1849D6a4cdb64aB3EB");
 
     const executor = "0x3210000000000000000000000000000000000123";
     const stakingPool = "0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47";
     console.log("");
     console.log("=============================");
-    console.log("Setting recipients of the MEV tip (this needs to be set only once by each coinbase)");
+    console.log(
+      "Setting recipients of the MEV tip (this needs to be set only once by each coinbase)"
+    );
     await lightPrism.setRecipients(executor, stakingPool);
     console.log("   coinbase    <- " + executor);
     console.log("   stakingPool <- " + stakingPool);
@@ -78,7 +104,9 @@ contract("LightPrism", (accounts) => {
     await lightPrism.queueEther({ value: 1000000000000000 });
 
     console.log("=============================");
-    console.log("MEV bundle makes a payment to a contract which splits it between the coinbase and the staking pool");
+    console.log(
+      "MEV bundle makes a payment to a contract which splits it between the coinbase and the staking pool"
+    );
     console.log("=============================");
 
     await lightPrism.payMiner();
@@ -88,7 +116,9 @@ contract("LightPrism", (accounts) => {
     console.log("stakingPool:", stakingBalance);
 
     console.log("=============================");
-    console.log("Lido distributes MEV-tip between stakers and validator nodes operators");
+    console.log(
+      "Lido distributes MEV-tip between stakers and validator nodes operators"
+    );
     await lidoDistr.distribureMev();
     console.log("=============================");
     console.log("stETH balances after");
