@@ -30,11 +30,11 @@ contract("LightPrism", (accounts) => {
     console.log("   coinbase    <- " + executor);
     console.log("   stakingPool <- " + stakingPool);
     console.log("=============================");
-    console.log("");
     let executorBalance = await web3.eth.getBalance(executor);
     console.log("coinbase:", executorBalance);
     let stakingBalance = await web3.eth.getBalance(stakingPool);
     console.log("stakingPool:", stakingBalance);
+    console.log("=============================");
     console.log("");
     console.log("=============================");
     console.log("MEV bundle enqueues 0.001 ETH");
@@ -69,36 +69,37 @@ contract("LightPrism", (accounts) => {
       "stakers:       ",
       stakersBalances.map((x) => x.toString())
     );
+    console.log("=============================");
 
     console.log("");
     console.log("=============================");
     console.log("MEV bundle enqueues 0.001 ETH");
     console.log("=============================");
-    console.log("");
     await lightPrism.queueEther({ value: 1000000000000000 });
-
+    console.log("");
     console.log("=============================");
     console.log("MEV bundle makes a payment to a contract which splits it between the coinbase and the staking pool");
     console.log("=============================");
-
     await lightPrism.payMiner();
     executorBalance = await web3.eth.getBalance(executor);
     console.log("coinbase:", executorBalance);
     stakingBalance = await web3.eth.getBalance(stakingPool);
     console.log("stakingPool:", stakingBalance);
-
+    console.log("=============================");
+    console.log("");
     console.log("=============================");
     console.log("Lido distributes MEV-tip between stakers and validator nodes operators");
+    console.log("=============================");
     await lidoDistr.distribureMev();
-    console.log("=============================");
-    console.log("stETH balances after");
-    console.log("=============================");
-
     executorBalance = await web3.eth.getBalance(executor);
     console.log("coinbase:", executorBalance);
     stakingBalance = await web3.eth.getBalance(stakingPool);
     console.log("stakingPool:", stakingBalance);
-
+    console.log("=============================");
+    console.log("");
+    console.log("=============================");
+    console.log("stETH balances after");
+    console.log("=============================");
     opsBalances = await Promise.all(
       nodeOperators.map((op) => steth.balanceOf(op))
     );
