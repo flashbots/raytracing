@@ -31,7 +31,7 @@ contract("LightPrism", (accounts) => {
     console.log("   stakingPool <- " + stakingPool);
     console.log("=============================");
     let executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:", executorBalance);
+    console.log("coinbase:   ", executorBalance);
     let stakingBalance = await web3.eth.getBalance(stakingPool);
     console.log("stakingPool:", stakingBalance);
     console.log("=============================");
@@ -51,7 +51,7 @@ contract("LightPrism", (accounts) => {
     console.log("=============================");
 
     executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:", executorBalance);
+    console.log("coinbase:   ", executorBalance);
     stakingBalance = await web3.eth.getBalance(stakingPool);
     console.log("stakingPool:", stakingBalance);
 
@@ -82,7 +82,7 @@ contract("LightPrism", (accounts) => {
     console.log("=============================");
     await lightPrism.payMiner();
     executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:", executorBalance);
+    console.log("coinbase:   ", executorBalance);
     stakingBalance = await web3.eth.getBalance(stakingPool);
     console.log("stakingPool:", stakingBalance);
     console.log("=============================");
@@ -92,7 +92,7 @@ contract("LightPrism", (accounts) => {
     console.log("=============================");
     await lidoDistr.distribureMev();
     executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:", executorBalance);
+    console.log("coinbase:   ", executorBalance);
     stakingBalance = await web3.eth.getBalance(stakingPool);
     console.log("stakingPool:", stakingBalance);
     console.log("=============================");
