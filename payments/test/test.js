@@ -18,18 +18,50 @@ const stakers = [
 contract("LightPrism", (accounts) => {
   it("Should pay", async function () {
     const lightPrism = await LightPrism.deployed();
-    const lidoDistr = await LidoMevDistributor.deployed();
+    const lidoDistr = await LidoMevDistributor.at('0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47');
     const steth = await ERC20.at("0x8953454B243E11012DD63b1849D6a4cdb64aB3EB");
-    console.log("queue");
-    await lightPrism.queueEther({ value: 3 });
-    const executor = "0x0000000000000000000000000000000000000000";
-    const stakingPool = "0x5f3519e5cbb1d4ba25efea577f61e5ced54a6cea";
+
+    console.log("");
+    console.log("=============================");
+    console.log("MEV bundle enqueues 0.001 ETH");
+    console.log("=============================");
+
+    await lightPrism.queueEther({ value: 1000000000000000 });
+    const executor = "0x3210000000000000000000000000000000000123";
+    const stakingPool = "0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47";
     // const recipients = {
     //   executor: "0x0000000000000000000000000000000000000000", // zero will be coinbase
     //   stakingPool: "0xabcd000000000000000000000000000000001234", // lidoDistr contract here
     // };
 
-    console.log("stETH balances before");
+
+    console.log("=============================");
+    console.log("Setting recipients of the MEV tip (this needs to be set only once by each coinbase)");
+    await lightPrism.setRecipients(executor, stakingPool);
+    console.log("   executor    <- " + executor);
+    console.log("   stakingPool <- " + stakingPool);
+    console.log("=============================");
+
+    console.log("");
+    console.log("=============================");
+    console.log("MEV bundle enqueues 0.001 ETH");
+    console.log("=============================");
+    console.log("");
+    await lightPrism.queueEther({ value: 1000000000000000 });
+
+    console.log("=============================");
+    console.log("MEV bundle makes a payment to a contract which splits it between the coinbase and the staking pool");
+    console.log("=============================");
+
+    await lightPrism.payMiner();
+    await lidoDistr.distribureMev();
+    console.log("=============================");
+    console.log("Lido distributes MEV-tip between stakers and validator nodes operators");
+    console.log("=============================");
+
+    console.log("=============================");
+    console.log("stETH balances after");
+    console.log("=============================");
     let opsBalances = await Promise.all(
       nodeOperators.map((op) => steth.balanceOf(op))
     );
@@ -41,34 +73,9 @@ contract("LightPrism", (accounts) => {
       stakers.map((op) => steth.balanceOf(op))
     );
     console.log(
-      "stakers:",
+      "stakers:       ",
       stakersBalances.map((x) => x.toString())
     );
-
-    console.log("recipients");
-    await lightPrism.setRecipients(executor, stakingPool);
-    console.log("queue");
-    await lightPrism.queueEther({ value: 3 });
-    console.log("pay");
-    await lightPrism.payMiner();
-    console.log("paid");
-    await lidoDistr.distribureMev();
-    console.log("MEV distributed");
-
-    console.log("stETH balances after");
-    opsBalances = await Promise.all(
-      nodeOperators.map((op) => steth.balanceOf(op))
-    );
-    console.log(
-      "node operators:",
-      opsBalances.map((x) => x.toString())
-    );
-    stakersBalances = await Promise.all(
-      stakers.map((op) => steth.balanceOf(op))
-    );
-    console.log(
-      "stakers:",
-      stakersBalances.map((x) => x.toString())
-    );
+    console.log("=============================");
   });
 });
