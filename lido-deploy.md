@@ -1,6 +1,6 @@
 # Deploying Lido
 
-This document descripbes how to deploym the Lido protocol mock and MEV rewards distributor contract.
+This document describes how to deploy the Lido protocol mock and MEV rewards distributor contract.
 
 #### 1. Install the `eth-brownie` Python package
 
@@ -80,7 +80,7 @@ Enter passwords for unlocking the accounts (chosen in the step 2).
 >>> stake(lido, [(stakers[0], 1 * 10**18), (stakers[1], 32 * 10**18), (stakers[2], 96 * 10**18)], deployer)
 ```
 
-This will also pretend beacon balance has increased due to staking rewards.
+This will also pretend that validators' beacon balance has increased due to staking rewards, so stETH balances of stakers will also increase.
 
 #### 8. Print stakers' and node operators' stETH balances
 
