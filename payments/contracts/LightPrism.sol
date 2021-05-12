@@ -29,7 +29,7 @@ contract LightPrism {
   function setRecipients(address executor, address stakingPool) external {
     // just simplify for now <- this should only be valid of msg.sender is coinbase
     _recipients[block.coinbase] = Recipients(executor, stakingPool);
-    emit RecipientUpdate(msg.sender, executor, stakingPool);
+    emit RecipientUpdate(block.coinbase, executor, stakingPool);
   }
 
   function _getRecipients(address _who)
