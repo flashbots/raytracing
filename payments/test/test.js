@@ -39,118 +39,96 @@ const send_bundle = async (url, txn) => {
 // Traditional Truffle test
 contract("LightPrism", (accounts) => {
   it("Should pay", async function () {
+    
     const lightPrism = await LightPrism.deployed();
-    const lidoDistr = await LidoMevDistributor.at(
-      "0x775A136c9bB5669677185dEEE09051A7382B1574"
-    );
+    const lidoDistr = await LidoMevDistributor.at("0x775A136c9bB5669677185dEEE09051A7382B1574");
     const steth = await ERC20.at("0x218bC3c5AC79Ba91c8309D01f8D1466Db560dd23");
-
     const executor = "0x3210000000000000000000000000000000000123";
     const stakingPool = "0x775A136c9bB5669677185dEEE09051A7382B1574";
+
+    let drawBalances = async function() {
+      await showBalance(executor,    "coinbase   ");
+      await showBalance(stakingPool, "stakingPool");
+      draw____________________________________________();
+    };
+
+    let drawStaking = async function() {
+      let opsBalances = await Promise.all(
+        nodeOperators.map((op) => steth.balanceOf(op))
+      );
+      console.log(
+        "node operators:",
+        opsBalances.map((x) => x.toString())
+      );
+      let stakersBalances = await Promise.all(
+        stakers.map((op) => steth.balanceOf(op))
+      );
+      console.log(
+        "stakers:       ",
+        stakersBalances.map((x) => x.toString())
+      );
+      draw____________________________________________();
+    };
+
     console.log("");
-    console.log("=============================");
-    console.log(
-      "Setting recipients of the MEV tip (this needs to be set only once by each coinbase)"
-    );
+    drawTitle("Setting recipients of the MEV tip (this needs to be set only once by each coinbase)");
     await lightPrism.setRecipients(executor, stakingPool);
+    await waitForTx();
     console.log("   coinbase    <- " + executor);
     console.log("   stakingPool <- " + stakingPool);
-    console.log("=============================");
-    let executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:   ", executorBalance);
-    let stakingBalance = await web3.eth.getBalance(stakingPool);
-    console.log("stakingPool:", stakingBalance);
-    console.log("=============================");
+    draw____________________________________________();
+    await drawBalances();
     console.log("");
-    console.log("=============================");
-    console.log("MEV bundle enqueues 0.001 ETH");
-    console.log("=============================");
+    drawTitle("MEV bundle enqueues 0.001 ETH");
     console.log("");
     await lightPrism.queueEther({ value: 1000000000000000 });
+    await waitForTx();
     // const recipients = {
     //   executor: "0x0000000000000000000000000000000000000000", // zero will be coinbase
     //   stakingPool: "0xabcd000000000000000000000000000000001234", // lidoDistr contract here
     // };
 
-    console.log("=============================");
-    console.log("stETH balances before");
-    console.log("=============================");
-
-    executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:   ", executorBalance);
-    stakingBalance = await web3.eth.getBalance(stakingPool);
-    console.log("stakingPool:", stakingBalance);
-
-    let opsBalances = await Promise.all(
-      nodeOperators.map((op) => steth.balanceOf(op))
-    );
-    console.log(
-      "node operators:",
-      opsBalances.map((x) => x.toString())
-    );
-    let stakersBalances = await Promise.all(
-      stakers.map((op) => steth.balanceOf(op))
-    );
-    console.log(
-      "stakers:       ",
-      stakersBalances.map((x) => x.toString())
-    );
-    console.log("=============================");
+    drawTitle("stETH balances before");
+    await drawBalances();
+    await drawStaking();
 
     console.log("");
-    console.log("=============================");
-    console.log("MEV bundle enqueues 0.001 ETH");
-    console.log("=============================");
+    drawTitle("MEV bundle enqueues 0.001 ETH");
     await lightPrism.queueEther({ value: 1000000000000000 });
+    await waitForTx();
     console.log("");
-    console.log("=============================");
-    console.log(
-      "MEV bundle makes a payment to a contract which splits it between the coinbase and the staking pool"
-    );
-    console.log("=============================");
+    drawTitle("MEV bundle makes a payment to a contract which splits it between the coinbase and the staking pool");
     await lightPrism.payMiner();
-    executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:   ", executorBalance);
-    stakingBalance = await web3.eth.getBalance(stakingPool);
-    console.log("stakingPool:", stakingBalance);
-    console.log("=============================");
+    await waitForTx();
+    await drawBalances();
     console.log("");
-    console.log(
-      "Lido distributes MEV-tip between stakers and validator nodes operators"
-    );
+    drawTitle("Lido distributes MEV-tip between stakers and validator nodes operators");
     await lidoDistr.distribureMev();
-    console.log("=============================");
-    console.log("Lido distributes MEV-tip between stakers and validator nodes operators");
-    console.log("=============================");
-    await lidoDistr.distribureMev();
-    executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:   ", executorBalance);
-    stakingBalance = await web3.eth.getBalance(stakingPool);
-    console.log("stakingPool:", stakingBalance);
-    console.log("=============================");
+    await waitForTx();
+    await drawBalances();
     console.log("");
-    console.log("=============================");
-    console.log("stETH balances after");
-    console.log("=============================");
-    opsBalances = await Promise.all(
-      nodeOperators.map((op) => steth.balanceOf(op))
-    );
-    console.log(
-      "node operators:",
-      opsBalances.map((x) => x.toString())
-    );
-    stakersBalances = await Promise.all(
-      stakers.map((op) => steth.balanceOf(op))
-    );
-    console.log(
-      "stakers:       ",
-      stakersBalances.map((x) => x.toString())
-    );
-    console.log("=============================");
-    executorBalance = await web3.eth.getBalance(executor);
-    console.log("coinbase:   ", executorBalance);
-    stakingBalance = await web3.eth.getBalance(stakingPool);
-    console.log("stakingPool:", stakingBalance);
-    console.log("=============================");
+    drawTitle("stETH balances after");
+    await drawStaking();
+    await drawBalances();
   });
 });
+
+function drawTitle(titleText) {
+  draw____________________________________________();
+  console.log(titleText);
+  draw____________________________________________();
+}
+
+function draw____________________________________________() {
+  console.log("=============================");
+}
+
+async function waitForTx() {
+  await new Promise(r => setTimeout(r, 500));
+}
+
+async function showBalance(address, name) {
+  let balance = await web3.eth.getBalance(address);
+  console.log(`${name}:   `, balance);
+}
+
