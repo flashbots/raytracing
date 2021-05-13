@@ -41,12 +41,12 @@ contract("LightPrism", (accounts) => {
   it("Should pay", async function () {
     const lightPrism = await LightPrism.deployed();
     const lidoDistr = await LidoMevDistributor.at(
-      "0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47"
+      "0x775A136c9bB5669677185dEEE09051A7382B1574"
     );
-    const steth = await ERC20.at("0x8953454B243E11012DD63b1849D6a4cdb64aB3EB");
+    const steth = await ERC20.at("0x218bC3c5AC79Ba91c8309D01f8D1466Db560dd23");
 
     const executor = "0x3210000000000000000000000000000000000123";
-    const stakingPool = "0x5304e3c2b42BEaA8f3e37585bFed1274D1055E47";
+    const stakingPool = "0x775A136c9bB5669677185dEEE09051A7382B1574";
     console.log("");
     console.log("=============================");
     console.log(
