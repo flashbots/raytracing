@@ -115,5 +115,10 @@ contract("LightPrism", (accounts) => {
       stakersBalances.map((x) => x.toString())
     );
     console.log("=============================");
+    executorBalance = await web3.eth.getBalance(executor);
+    console.log("coinbase:   ", executorBalance);
+    stakingBalance = await web3.eth.getBalance(stakingPool);
+    console.log("stakingPool:", stakingBalance);
+    console.log("=============================");
   });
 });
