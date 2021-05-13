@@ -8,3 +8,6 @@
 	path = mergenet-tutorial
 	url = https://github.com/protolambda/mergenet-tutorial.git
 	branch = master
+[submodule "ray-tracing-bundles"]
+	path = ray-tracing-bundles
+	url = https://github.com/NethermindEth/ray-tracing-bundles.git
