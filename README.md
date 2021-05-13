@@ -1,5 +1,6 @@
 # Ray Tracing
-Eth2-MEV project with liquid staking (Flashbots-Lido-Nethermind). Notes: https://hackmd.io/riaJ_3SmQmOrXFv6rZewuQ?view
+Eth2-MEV project with liquid staking (Flashbots-Lido-Nethermind). 
+[Notes](https://hackmd.io/riaJ_3SmQmOrXFv6rZewuQ?view) | [Slides](https://docs.google.com/presentation/d/1ouWmima9XZLJhCqO0dmfzuThprDjZpdiDcbMv_95Nhk/edit?usp=sharing)
 
 What you need to setup:
 
@@ -18,4 +19,4 @@ Team:
  * Tomasz (Nethermind) - LightPrism contract, recording / demo
 
 Aknowledgement:
-Thanks to everyone at Flashbots, Lido and Nethermind team, and the Rayonism project. In particular, we are grateful for the support from Tina from Flashbots in fluid cross-team coordination bridging Rayonism and ETHGlobal hackathon, Victor and Sam from Lido team providing insights on Lido contract value distribution, Marek and Mateusz from Nethermind for their participation in the Merge launch, and the work of Flashbots Research on ETH2.
+Thanks to everyone at Flashbots, Lido and Nethermind team, and the Rayonism project. In particular, we are grateful for the support from Victor and Sam from Lido team providing insights on Lido contract value distribution, Marek and Mateusz from Nethermind for their participation in the Merge launch, Tina from Flashbots in fluid cross-team coordination bridging Rayonism and ETHGlobal hackathon, and the work of Flashbots Research on ETH2.
