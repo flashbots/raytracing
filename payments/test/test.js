@@ -47,6 +47,7 @@ contract("LightPrism", (accounts) => {
     const stakingPool = "0x775A136c9bB5669677185dEEE09051A7382B1574";
 
     let drawBalances = async function() {
+      await showBalance(lightPrism.address,  "lightPrism ");
       await showBalance(executor,    "coinbase   ");
       await showBalance(stakingPool, "stakingPool");
       draw____________________________________________();
@@ -70,7 +71,22 @@ contract("LightPrism", (accounts) => {
       draw____________________________________________();
     };
 
+    drawTitle("Presenting a Flashbots MEV-bundle (a list of transactions) sent to a Nethermind node. The bundle includes a transaction that sends an MEV tip to the LightPrism contract which then splits it between the coinbase (Eth1 node operator) and Lido staking pool (further distributing between stakers and validator nodes operators). The Eth1 block is generated in response to the assemble block call from an Eth2 client (Teku).");
+    console.log("MEV tip");
+    console.log("|");
+    console.log("|");
+    console.log("|");
+    console.log("_______1/3 to coinbase");
+    console.log("_______2/3 to staking pool");
+    console.log("       |");
+    console.log("       |");
+    console.log("       |");
+    console.log("       |");
+    console.log("       _______x%        to validators");
+    console.log("       _______100% - x% to stakers");
+    draw____________________________________________();
     console.log("");
+
     drawTitle("Setting recipients of the MEV tip (this needs to be set only once by each coinbase)");
     await lightPrism.setRecipients(executor, stakingPool);
     await waitForTx();
@@ -96,6 +112,7 @@ contract("LightPrism", (accounts) => {
     drawTitle("MEV bundle enqueues 0.001 ETH");
     await lightPrism.queueEther({ value: 1000000000000000 });
     await waitForTx();
+    await drawBalances();
     console.log("");
     drawTitle("MEV bundle makes a payment to a contract which splits it between the coinbase and the staking pool");
     await lightPrism.payMiner();
@@ -120,7 +137,7 @@ function drawTitle(titleText) {
 }
 
 function draw____________________________________________() {
-  console.log("=============================");
+  console.log("================================================================");
 }
 
 async function waitForTx() {
